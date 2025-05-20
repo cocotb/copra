@@ -40,9 +40,12 @@ async def test_minimal(dut):
         # Set input
         dut.data_in.value = val
         
-        # Wait for the next clock edge
+        # Wait for the next clock edge (for the input to be captured)
+        await RisingEdge(dut.clk)
+        # Wait for another clock edge (for the output to be updated)
         await RisingEdge(dut.clk)
         
         # Check output
-        assert dut.data_out.value == val, \
-            f"Expected {val:#04x}, got {dut.data_out.value:#04x}"
+        output_val = int(dut.data_out.value)
+        assert output_val == val, \
+            f"Expected {val:#04x}, got {output_val:#04x}"

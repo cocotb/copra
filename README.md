@@ -28,21 +28,65 @@ Copra is an experimental Python package that aims to generate type stubs for [co
 
 ## Installation
 
-```bash
-pip install copra
-```
-
-For development:
+First, clone the repository and set up a virtual environment:
 
 ```bash
-git clone https://github.com/yourusername/copra.git
+# Clone the repository
+git clone https://github.com/cocotb/copra.git
 cd copra
-pip install -e .[dev]
+
+# Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install the package in development mode
+pip install -e .
 ```
 
-## Quick Start (Planned Functionality)
+### Dependencies
 
-> ⚠️ **Note**: The functionality described below is planned but not yet implemented.
+The project requires:
+- Python 3.8+
+- cocotb 1.8.0 or later
+- Icarus Verilog (or another cocotb-compatible simulator)
+- pytest for running tests
+- Sphinx for building documentation (optional)
+
+Install development dependencies:
+
+```bash
+pip install -e .[dev,test,docs]
+```
+
+## Quick Start
+
+### Running the Example
+
+The `examples/minimal` directory contains a working example. To run it:
+
+```bash
+# Navigate to the example
+cd examples/minimal
+
+# Clean any previous builds
+make clean
+
+# Run the example
+make
+```
+
+This will:
+1. Compile the Verilog DUT
+2. Run the cocotb testbench
+3. Show the test results
+
+### Expected Output
+
+```
+** TEST                          STATUS  SIM TIME (ns)  REAL TIME (s)  RATIO (ns/s) **
+** test_minimal.test_minimal      PASS          90.00           0.00      63959.94  **
+** TESTS=1 PASS=1 FAIL=0 SKIP=0                 90.00           0.41        219.23  **
+```
 
 1: Install cocotb:
 
@@ -96,6 +140,10 @@ async def test_my_design(dut: dut):  # Type hints will work!
 - Basic DUT hierarchy discovery (in tests)
 - Simple stub generation for mock DUTs
 - Basic command-line interface (non-functional for real DUTs)
+- Example testbench with a simple DUT
+- Test suite with pytest
+- End-to-end example in `examples/minimal`
+- Basic documentation structure
 
 ### What's coming:
 - Integration with cocotb simulation
@@ -108,16 +156,67 @@ async def test_my_design(dut: dut):  # Type hints will work!
 
 ### Running Tests
 
+To run the test suite:
+
 ```bash
-pytest tests/
+# Install test dependencies if not already installed
+pip install -e .[test]
+
+# Run all tests
+pytest tests/ -v
+
+# Run a specific test file
+pytest tests/test_stubgen.py -v
+
+# Run with coverage report
+pytest --cov=copra tests/
+```
+
+### Testing with Different Simulators
+
+By default, the tests use Icarus Verilog. To use a different simulator, set the `SIM` environment variable:
+
+```bash
+# For VCS
+SIM=vcs pytest tests/ -v
+
+# For Verilator
+SIM=verilator pytest tests/ -v
+```
+
+### Examples
+
+The `examples/` directory contains working examples. Here's how to run them:
+
+```bash
+# Navigate to the minimal example
+cd examples/minimal
+
+# Clean any previous builds
+make clean
+
+# Run the example test
+make
+
+# To see the generated VCD waveform (if enabled in the Makefile)
+gtkwave dump.vcd
 ```
 
 ### Building Documentation
 
+To build the documentation locally:
+
 ```bash
+# Install documentation dependencies
+pip install -e .[docs]
+
+# Build the documentation
 cd docs
 make html
-```
+
+# Open the documentation in your default browser
+open _build/html/index.html
+
 
 ## License
 
