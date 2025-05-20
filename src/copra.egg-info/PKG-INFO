@@ -1,0 +1,65 @@
+Metadata-Version: 2.4
+Name: copra
+Version: 0.1.0
+Summary: Python type stubs generator for cocotb testbenches
+Author: cocotb contributors
+License: BSD-3-Clause
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: cocotb>=1.8.0
+Provides-Extra: dev
+Requires-Dist: pytest>=6.0; extra == "dev"
+Requires-Dist: pytest-cov>=2.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: pre-commit>=2.0.0; extra == "dev"
+Requires-Dist: sphinx>=4.0.0; extra == "dev"
+Requires-Dist: furo>=2021.0.0; extra == "dev"
+Requires-Dist: sphinx-copybutton>=0.5.0; extra == "dev"
+Dynamic: license-file
+
+# copra
+
+Copra - A static type stub generator for cocotb testbenches. 
+
+> [Copra](https://www.britannica.com/topic/copra) is the kernel of the fruit of the coconut palm. 
+
+Just like copra is the kernel of the fruit of the coconut palm, copra is the valuable typing information of the cocotb testbench.
+
+## Overview
+
+copra generates Python type stubs for cocotb testbenches, enabling better IDE support and static type checking.
+
+## Features
+
+- Auto-discovers DUT hierarchy
+- Generates PEP 561-compliant stub files
+- Supports all cocotb handle types
+- Integrates with mypy and other type checkers
+
+## Installation
+
+```bash
+pip install copra
+```
+
+## Quick Start
+
+```bash
+copra my_design
+```
+
+## License
+
+BSD-3-Clause (same as cocotb)

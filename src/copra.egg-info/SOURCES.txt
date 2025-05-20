@@ -1,0 +1,15 @@
+LICENSE
+README.md
+pyproject.toml
+src/copra/__init__.py
+src/copra/_version.py
+src/copra/py.typed
+src/copra/stubgen.py
+src/copra/utils.py
+src/copra.egg-info/PKG-INFO
+src/copra.egg-info/SOURCES.txt
+src/copra.egg-info/dependency_links.txt
+src/copra.egg-info/entry_points.txt
+src/copra.egg-info/requires.txt
+src/copra.egg-info/top_level.txt
+tests/test_stubgen.py
