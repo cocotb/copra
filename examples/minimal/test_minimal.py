@@ -11,40 +11,41 @@ from cocotb.triggers import RisingEdge
 @cocotb.test()
 async def test_minimal(dut):
     """Test the minimal example module.
-    
+
     Args:
         dut: The DUT (Design Under Test) handle.
+
     """
     # Create a 10ns period clock
     clock = Clock(dut.clk, 10, units="ns")
-    
+
     # Start the clock
     cocotb.start_soon(clock.start())
-    
+
     # Reset the DUT
     dut.rst_n.value = 0
     dut.data_in.value = 0
-    
+
     # Wait for two clock cycles
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
-    
+
     # Release reset
     dut.rst_n.value = 1
-    
+
     # Test data sequence
     test_values = [0x00, 0x55, 0xAA, 0xFF]
-    
+
     # Apply test values and check outputs
     for val in test_values:
         # Set input
         dut.data_in.value = val
-        
+
         # Wait for the next clock edge (for the input to be captured)
         await RisingEdge(dut.clk)
         # Wait for another clock edge (for the output to be updated)
         await RisingEdge(dut.clk)
-        
+
         # Check output
         output_val = int(dut.data_out.value)
         assert output_val == val, \

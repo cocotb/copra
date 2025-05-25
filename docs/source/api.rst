@@ -1,7 +1,7 @@
 .. _api:
 
 API Reference
-============
+=============
 
 This page provides documentation for the public API of copra.
 
@@ -28,11 +28,8 @@ Helper functions used throughout the package.
    :member-order: bysource
 
 Version Information
-------------------
+-------------------
 
 Version information for the package.
 
-.. automodule:: copra._version
-   :members:
-   :undoc-members:
-   :show-inheritance:
+.. autodata:: copra.__version__

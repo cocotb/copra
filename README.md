@@ -19,7 +19,7 @@ Copra is an experimental Python package that aims to generate type stubs for [co
 
 ## Features
 
-- 🚀 Generate Python type stubs from Verilog/SystemVerilog DUTs
+- 🚀 Generate Python type stubs from VHDL and Verilog/SystemVerilog DUTs
 - 🧩 Supports both scalar and array ports
 - 🎯 Improves IDE autocompletion and type checking
 - ⚡ Works with any cocotb-compatible simulator
@@ -137,6 +137,7 @@ async def test_my_design(dut: dut):  # Type hints will work!
 ## Current Status
 
 ### What works:
+
 - Basic DUT hierarchy discovery (in tests)
 - Simple stub generation for mock DUTs
 - Basic command-line interface (non-functional for real DUTs)
@@ -146,6 +147,7 @@ async def test_my_design(dut: dut):  # Type hints will work!
 - Basic documentation structure
 
 ### What's coming:
+
 - Integration with cocotb simulation
 - Support for real DUT introspection
 - Complete type stub generation
