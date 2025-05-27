@@ -1,8 +1,10 @@
 """Tests for the copra CLI functionality."""
 
+import os
 import sys
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, mock_open, patch
+import json
 
 import pytest
 from copra.core import main
@@ -302,4 +304,377 @@ class TestCLIFutureImplementation:
             assert result == 1
             captured = capsys.readouterr()
             assert "File I/O Error" in captured.err
+
+
+# Additional comprehensive tests for the new CLI implementation
+class TestNewCLIImplementation:
+    """Tests for the new comprehensive CLI implementation."""
+
+    @patch('copra.cli.CopraCLI._get_dut_handle')
+    @patch('copra.cli.CopraCLI._discover_hierarchy')
+    @patch('builtins.open', new_callable=mock_open)
+    def test_main_generate_command(self, mock_file, mock_discover_hierarchy, mock_get_dut):
+        """Test main function with generate command."""
+        from copra.cli import main as cli_main
+        
+        # Setup mocks
+        mock_dut = Mock()
+        mock_dut._name = "test_module"
+        mock_hierarchy = {"signal1": Mock}
+        mock_get_dut.return_value = mock_dut
+        mock_discover_hierarchy.return_value = mock_hierarchy
+        
+        # Run main with valid arguments
+        result = cli_main(['--module', 'test_module'])
+        
+        # Verify
+        assert result == 0
+
+    @patch('copra.cli.CopraCLI._get_dut_handle')
+    @patch('copra.cli.CopraCLI._discover_hierarchy')
+    @patch('builtins.open', new_callable=mock_open)
+    def test_main_with_config(self, mock_file, mock_discover_hierarchy, mock_get_dut):
+        """Test main function with config file."""
+        from copra.cli import main as cli_main
+        
+        # Setup mocks
+        mock_dut = Mock()
+        mock_dut._name = "test_module"
+        mock_hierarchy = {"signal1": Mock}
+        mock_get_dut.return_value = mock_dut
+        mock_discover_hierarchy.return_value = mock_hierarchy
+        
+        # Run main with valid arguments
+        result = cli_main(['--module', 'test_module', '--verbose'])
+        
+        # Verify
+        assert result == 0
+
+    @patch('copra.cli.discover_hierarchy')
+    @patch('copra.cli.StubGenerator')
+    @patch('builtins.open', new_callable=mock_open)
+    def test_generate_from_existing_simulation(self, mock_file, mock_generator_class, mock_discover):
+        """Test generating stub from existing simulation."""
+        from copra.cli import handle_generate_command
+        from argparse import Namespace
+        
+        # Setup args
+        args = Namespace(
+            top_module="test_module",
+            verilog=None,
+            vhdl=None,
+            simulator=None,
+            parameters=None,
+            build_dir=None,
+            no_cleanup=False,
+            output=None,
+            output_dir=None,
+            format="pyi",
+            flat_hierarchy=False,
+            include_metadata=False,
+            include_arrays=False,
+            include_docstrings=False,
+            typing_style="modern",
+            class_prefix="",
+            class_suffix="",
+            verbose=0,
+        )
+        
+        # Setup mocks
+        mock_dut = Mock()
+        mock_hierarchy = {"signal1": Mock}
+        mock_discover.side_effect = [mock_dut, mock_hierarchy]
+        
+        mock_generator = Mock()
+        mock_generator.generate_stub.return_value = "stub content"
+        mock_generator_class.return_value = mock_generator
+        
+        # Run command
+        result = handle_generate_command(args)
+        
+        # Verify
+        assert result == 0
+        mock_discover.assert_called()
+        mock_file.assert_called_once()
+        mock_generator.generate_stub.assert_called_once()
+
+    @patch('copra.cli.CopraCLI._get_dut_from_sources')
+    @patch('copra.cli.CopraCLI._discover_hierarchy')
+    @patch('builtins.open', new_callable=mock_open)
+    def test_generate_from_sources(self, mock_file, mock_discover_hierarchy, mock_get_dut_from_sources):
+        """Test generating stub from HDL sources."""
+        from copra.cli import handle_generate_command
+        from argparse import Namespace
+        
+        # Setup args with sources
+        args = Namespace(
+            top_module="test_module",
+            sources=["test.v"],
+            module=None,
+            list_simulators=False,
+            top="test_module",
+            outfile="output.pyi",
+            format="pyi",
+            simulator=None,
+            build_dir=None,
+            parameters=None,
+            max_depth=50,
+            include_constants=False,
+            include_metadata=False,
+            array_detection=True,
+            no_array_detection=False,
+            performance_mode=False,
+            no_validation=False,
+            stats=False,
+            verbose=False,
+            quiet=False,
+            template="default",
+            cleanup=True,
+            no_cleanup=False,
+            timeout=30.0,
+        )
+        
+        # Setup mocks
+        mock_dut = Mock()
+        mock_dut._name = "test_module"
+        mock_hierarchy = {"signal1": Mock}
+        mock_get_dut_from_sources.return_value = mock_dut
+        mock_discover_hierarchy.return_value = mock_hierarchy
+        
+        # Run command
+        result = handle_generate_command(args)
+        
+        # Verify
+        assert result == 0
+        mock_get_dut_from_sources.assert_called_once()
+        mock_discover_hierarchy.assert_called_once()
+
+    @patch('copra.cli.CopraCLI._get_dut_handle')
+    @patch('copra.cli.CopraCLI._discover_hierarchy')
+    @patch('builtins.open', new_callable=mock_open)
+    def test_generate_json_format(self, mock_file, mock_discover_hierarchy, mock_get_dut):
+        """Test generating JSON format output."""
+        from copra.cli import handle_generate_command
+        from argparse import Namespace
+        
+        # Setup args for JSON output
+        args = Namespace(
+            top_module="test_module",
+            sources=None,
+            module=None,
+            list_simulators=False,
+            top=None,
+            outfile="output.json",
+            format="json",
+            simulator=None,
+            build_dir=None,
+            parameters=None,
+            max_depth=50,
+            include_constants=False,
+            include_metadata=True,
+            array_detection=True,
+            no_array_detection=False,
+            performance_mode=False,
+            no_validation=False,
+            stats=False,
+            verbose=False,
+            quiet=False,
+            template="default",
+            cleanup=True,
+            no_cleanup=False,
+            timeout=30.0,
+        )
+        
+        # Setup mocks
+        mock_dut = Mock()
+        mock_dut._name = "test_module"
+        mock_hierarchy = {"signal1": Mock}
+        mock_get_dut.return_value = mock_dut
+        mock_discover_hierarchy.return_value = mock_hierarchy
+        
+        # Run command
+        result = handle_generate_command(args)
+        
+        # Verify
+        assert result == 0
+        mock_file.assert_called()
+
+    @patch('copra.cli.CopraCLI._list_simulators')
+    def test_simulators_list_basic(self, mock_list_simulators):
+        """Test basic simulators list command."""
+        from copra.cli import handle_simulators_command
+        from argparse import Namespace
+        
+        args = Namespace(
+            list_simulators=True,
+            verbose=False,
+            quiet=False
+        )
+        
+        # Setup mock
+        mock_list_simulators.return_value = 0
+        
+        # Run command
+        result = handle_simulators_command(args)
+        
+        # Verify
+        assert result == 0
+        mock_list_simulators.assert_called_once()
+
+    @patch('copra.cli.discover_hierarchy')
+    @patch('copra.cli.analyze_hierarchy')
+    @patch('builtins.print')
+    def test_analyze_basic(self, mock_print, mock_analyze, mock_discover):
+        """Test basic analyze command."""
+        from copra.cli import handle_analyze_command
+        from argparse import Namespace
+        
+        args = Namespace(
+            top_module="test_module",
+            verilog=None,
+            vhdl=None,
+            simulator=None,
+            depth=None,
+            include_signals=False,
+            include_arrays=False,
+            output_format="text",
+            save_analysis=None,
+        )
+        
+        # Setup mocks
+        mock_dut = Mock()
+        mock_hierarchy = {"signal1": Mock}
+        mock_analysis = Mock()
+        mock_analysis.to_text.return_value = "analysis text"
+        
+        mock_discover.side_effect = [mock_dut, mock_hierarchy]
+        mock_analyze.return_value = mock_analysis
+        
+        # Run command
+        result = handle_analyze_command(args)
+        
+        # Verify
+        assert result == 0
+        mock_analyze.assert_called_once()
+        mock_print.assert_called_with("analysis text")
+
+    @patch('copra.analysis.validate_stub_syntax')
+    def test_validate_valid_files(self, mock_validate):
+        """Test validating valid stub files."""
+        from copra.cli import handle_validate_command
+        from argparse import Namespace
+        
+        args = Namespace(
+            top_module="test_module",
+            sources=None,
+            module="test_module",
+            expected_interface=None,
+            quiet=False
+        )
+        
+        # Setup mock
+        mock_validate.return_value = True
+        
+        # Mock the CLI methods
+        with patch('copra.cli.CopraCLI._get_dut_handle') as mock_get_dut, \
+             patch('copra.cli.CopraCLI._discover_hierarchy') as mock_discover, \
+             patch('copra.analysis.validate_dut_interface') as mock_validate_interface:
+            
+            mock_dut = Mock()
+            mock_hierarchy = {"signal1": Mock}
+            mock_get_dut.return_value = mock_dut
+            mock_discover.return_value = mock_hierarchy
+            mock_validate_interface.return_value = {'is_valid': True, 'errors': []}
+            
+            result = handle_validate_command(args)
+        
+        # Verify
+        assert result == 0
+
+    def test_load_valid_config(self, tmp_path):
+        """Test loading valid JSON config."""
+        from copra.cli import load_config
+        
+        config_data = {"simulator": "icarus", "verbose": True}
+        config_file = tmp_path / "config.json"
+        
+        with open(config_file, 'w') as f:
+            json.dump(config_data, f)
+        
+        result = load_config(config_file)
+        assert result == config_data
+
+    def test_load_nonexistent_config(self):
+        """Test loading nonexistent config file."""
+        from copra.cli import load_config
+        
+        with pytest.raises(FileNotFoundError):
+            load_config(Path("/nonexistent/config.json"))
+
+    def test_parser_creation(self):
+        """Test that parser is created correctly."""
+        from copra.cli import create_parser
+        
+        parser = create_parser()
+        assert parser is not None
+        assert parser.prog == "copra"
+
+    def test_generate_command_basic(self):
+        """Test basic generate command parsing."""
+        from copra.cli import create_parser
+        
+        parser = create_parser()
+        args = parser.parse_args(["--module", "test_module"])
+        assert args.module == "test_module"
+
+    def test_generate_command_with_sources(self):
+        """Test generate command with source files."""
+        from copra.cli import create_parser
+        
+        parser = create_parser()
+        args = parser.parse_args([
+            "--sources", "test1.v", "test2.v",
+            "--top", "test_module",
+            "--simulator", "icarus"
+        ])
+        assert args.sources == ["test1.v", "test2.v"]
+        assert args.top == "test_module"
+        assert args.simulator == "icarus"
+
+    def test_analyze_command_parsing(self):
+        """Test analyze command parsing."""
+        from copra.cli import create_parser
+        
+        parser = create_parser()
+        args = parser.parse_args([
+            "--module", "test_module",
+            "--max-depth", "5",
+            "--include-metadata",
+            "--format", "json"
+        ])
+        assert args.module == "test_module"
+        assert args.max_depth == 5
+        assert args.include_metadata is True
+        assert args.format == "json"
+
+    def test_simulators_command_parsing(self):
+        """Test simulators command parsing."""
+        from copra.cli import create_parser
+        
+        parser = create_parser()
+        args = parser.parse_args(["--list-simulators", "--verbose"])
+        assert args.list_simulators is True
+        assert args.verbose is True
+
+    def test_validate_command_parsing(self):
+        """Test validate command parsing."""
+        from copra.cli import create_parser
+        
+        parser = create_parser()
+        args = parser.parse_args([
+            "--module", "test_module",
+            "--no-validation"
+        ])
+        assert args.module == "test_module"
+        assert args.no_validation is True
 

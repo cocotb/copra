@@ -6,7 +6,7 @@ from typing import Any, Dict
 from unittest.mock import Mock, patch
 
 import pytest
-from cocotb.handle import HierarchyObject, LogicObject
+from cocotb.handle import HierarchyObject, SimHandleBase
 from copra.analysis import (
     analyze_hierarchy_complexity,
     analyze_stub_coverage,
@@ -37,16 +37,16 @@ def mock_dut():
         "test_dut",
         HierarchyObject,
         {
-            "clk": MockHandle("clk", LogicObject),
-            "rst_n": MockHandle("rst_n", LogicObject),
-            "data_in": MockHandle("data_in", LogicObject),
-            "data_out": MockHandle("data_out", LogicObject),
+            "clk": MockHandle("clk", SimHandleBase),
+            "rst_n": MockHandle("rst_n", SimHandleBase),
+            "data_in": MockHandle("data_in", SimHandleBase),
+            "data_out": MockHandle("data_out", SimHandleBase),
             "submodule": MockHandle(
                 "submodule",
                 HierarchyObject,
                 {
-                    "reg_a": MockHandle("reg_a", LogicObject),
-                    "reg_b": MockHandle("reg_b", LogicObject),
+                    "reg_a": MockHandle("reg_a", SimHandleBase),
+                    "reg_b": MockHandle("reg_b", SimHandleBase),
                 },
             ),
         },
@@ -61,17 +61,17 @@ def sample_stub_content():
 from typing import Iterator, Union
 from cocotb.handle import (
     HierarchyObject,
-    LogicObject,
+    SimHandleBase,
 )
 
 class TestDut(HierarchyObject):
     """Auto-generated class for TestDut."""
 
     # Signal attributes
-    clk: LogicObject
-    rst_n: LogicObject
-    data_in: LogicObject
-    data_out: LogicObject
+    clk: SimHandleBase
+    rst_n: SimHandleBase
+    data_in: SimHandleBase
+    data_out: SimHandleBase
 
     # Sub-module attributes
     submodule: Submodule
@@ -80,8 +80,8 @@ class Submodule(HierarchyObject):
     """Auto-generated class for Submodule."""
 
     # Signal attributes
-    reg_a: LogicObject
-    reg_b: LogicObject
+    reg_a: SimHandleBase
+    reg_b: SimHandleBase
 
 # Type alias for the main DUT
 DutType = TestDut
@@ -219,11 +219,11 @@ class TestAnalyzeHierarchyComplexity:
         """Test hierarchy complexity analysis with arrays."""
         hierarchy = {
             "dut": HierarchyObject,
-            "dut.array[0]": LogicObject,
-            "dut.array[1]": LogicObject,
-            "dut.array[2]": LogicObject,
-            "dut.signal": LogicObject,
-            "dut.array": LogicObject,  # Array base entry added by enhanced array detection
+            "dut.array[0]": SimHandleBase,
+            "dut.array[1]": SimHandleBase,
+            "dut.array[2]": SimHandleBase,
+            "dut.signal": SimHandleBase,
+            "dut.array": SimHandleBase,  # Array base entry added by enhanced array detection
         }
         
         # The analyze_hierarchy_complexity function expects a DUT object, not a hierarchy dict
@@ -260,7 +260,7 @@ class TestAnalyzeHierarchyComplexity:
                                     "level3",
                                     HierarchyObject,
                                     {
-                                        "deep_signal": MockHandle("deep_signal", LogicObject),
+                                        "deep_signal": MockHandle("deep_signal", SimHandleBase),
                                     },
                                 ),
                             },
@@ -435,7 +435,7 @@ class TestHierarchyReportGeneration:
                 'max_depth': 2,
                 'module_count': 3,
                 'array_count': 1,
-                'signal_types': {'LogicObject': 8, 'LogicArrayObject': 2},
+                'signal_types': {'SimHandleBase': 8, 'LogicArray': 2},
                 'depth_distribution': {1: 5, 2: 5},
                 'naming_patterns': {
                     'clock_signals': ['clk'],
@@ -468,7 +468,7 @@ class TestHierarchyReportGeneration:
                 'max_depth': 1,
                 'module_count': 1,
                 'array_count': 0,
-                'signal_types': {'LogicObject': 5},
+                'signal_types': {'SimHandleBase': 5},
                 'depth_distribution': {1: 5},
                 'naming_patterns': {
                     'clock_signals': [], 'reset_signals': [],

@@ -10,12 +10,237 @@ documentation generation as specified in the design document.
 
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Sequence, Iterator
+from dataclasses import dataclass
+import re
 
 from cocotb.handle import HierarchyObject
 
 from .core import discover_hierarchy
 from .utils import to_capwords
+from ._version import __version__
+
+
+@dataclass
+class StubGenerationOptions:
+    """Configuration options for stub generation.
+
+    Args:
+        flat_hierarchy: Whether to generate a flat hierarchy or nested classes.
+        include_metadata: Whether to include signal metadata in docstrings.
+        include_arrays: Whether to generate array support classes.
+        include_docstrings: Whether to generate docstrings.
+        typing_style: Style of type hints ("modern" or "legacy").
+        class_prefix: Prefix to add to generated class names.
+        class_suffix: Suffix to add to generated class names.
+        output_format: Output format ("pyi" or "py").
+    """
+
+    flat_hierarchy: bool = False
+    include_metadata: bool = True
+    include_arrays: bool = True
+    include_docstrings: bool = True
+    typing_style: str = "modern"
+    class_prefix: str = ""
+    class_suffix: str = ""
+    output_format: str = "pyi"
+
+
+class StubGenerator:
+    """Generate type stubs for DUT hierarchies with customizable options."""
+
+    def __init__(self, options: Optional[StubGenerationOptions] = None):
+        """Initialize stub generator with options.
+
+        Args:
+            options: Configuration options for stub generation.
+        """
+        self.options = options or StubGenerationOptions()
+        self.template = StubTemplate()
+
+    def generate_stub(self, hierarchy: Dict[str, type], module_name: str) -> str:
+        """Generate a type stub from a hierarchy dictionary.
+
+        Args:
+            hierarchy: DUT hierarchy dictionary.
+            module_name: Name of the top-level module.
+
+        Returns:
+            Generated stub file content.
+        """
+        content = []
+
+        # Add header based on output format
+        if self.options.output_format == "py":
+            imports = [
+                "from typing import Sequence, Iterator, cast, TYPE_CHECKING",
+                "from cocotb.handle import HierarchyObject",
+                "",
+                "if TYPE_CHECKING:",
+                "    # Runtime implementation would be here",
+                "    pass",
+            ]
+        else:  # pyi format
+            imports = [
+                "from typing import Sequence, Iterator, cast",
+                "from cocotb.handle import HierarchyObject",
+            ]
+        
+        content.append(self.template.render_header(
+            module_name=module_name,
+            imports="\n".join(imports),
+            output_format=self.options.output_format
+        ))
+
+        # Generate array classes if needed
+        if self.options.include_arrays:
+            array_classes = self._generate_array_classes(hierarchy)
+            if array_classes:
+                content.extend(array_classes)
+                content.append("")
+
+        # Generate main DUT class
+        if self.options.flat_hierarchy:
+            content.extend(self._generate_flat_hierarchy(hierarchy, module_name))
+        else:
+            content.extend(self._generate_nested_hierarchy(hierarchy, module_name))
+
+        # Add format-specific footer
+        if self.options.output_format == "py":
+            content.append("")
+            content.append("# Runtime implementation would include actual signal handling")
+            content.append("# This is a stub file for type checking purposes")
+
+        return "\n".join(content)
+
+    def _generate_array_classes(self, hierarchy: Dict[str, type]) -> List[str]:
+        """Generate array support classes."""
+        array_classes = []
+        arrays = {}
+
+        # Find array patterns in hierarchy
+        for path, type_ in hierarchy.items():
+            array_match = re.match(r'^(.+)\[(\d+)\]$', path)
+            if array_match:
+                base_path = array_match.group(1)
+                index = int(array_match.group(2))
+                if base_path not in arrays:
+                    arrays[base_path] = {
+                        'indices': set(),
+                        'element_type': type_,
+                        'min_index': index,
+                        'max_index': index
+                    }
+                arrays[base_path]['indices'].add(index)
+                arrays[base_path]['min_index'] = min(arrays[base_path]['min_index'], index)
+                arrays[base_path]['max_index'] = max(arrays[base_path]['max_index'], index)
+
+        # Generate array classes
+        for base_path, info in arrays.items():
+            class_name = f"{to_capwords(base_path.split('.')[-1])}Array"
+            array_classes.append(self.template.render_array(
+                class_name=class_name,
+                base_name=base_path,
+                element_type=info['element_type'].__name__,
+                size=len(info['indices']),
+                min_index=info['min_index'],
+                max_index=info['max_index']
+            ))
+
+        return array_classes
+
+    def _generate_flat_hierarchy(self, hierarchy: Dict[str, type], module_name: str) -> List[str]:
+        """Generate a flat hierarchy with all signals in one class."""
+        class_name = f"{self.options.class_prefix}{to_capwords(module_name)}{self.options.class_suffix}"
+        attributes = []
+
+        for path, type_ in sorted(hierarchy.items()):
+            type_annotation = type_.__name__
+            if self.options.typing_style == "legacy":
+                type_annotation = f"'{type_annotation}'"
+
+            comment = ""
+            if self.options.include_metadata:
+                comment = f"Signal at path: {path}"
+
+            attributes.append(self.template.render_signal(
+                name=path.replace(".", "_"),
+                type_annotation=type_annotation,
+                comment=comment
+            ))
+
+        docstring = ""
+        if self.options.include_docstrings:
+            docstring = f'''    """Type stub for {module_name} DUT.
+
+    This class provides type hints for all signals in the DUT hierarchy.
+    Total signals: {len(hierarchy)}
+    """
+'''
+
+        return [self.template.render_class(
+            class_name=class_name,
+            docstring=docstring,
+            attributes="\n".join(attributes)
+        )]
+
+    def _generate_nested_hierarchy(self, hierarchy: Dict[str, type], module_name: str) -> List[str]:
+        """Generate a nested hierarchy with classes for each module."""
+        # Group signals by module
+        modules = {}
+        for path, type_ in hierarchy.items():
+            parts = path.split(".")
+            if len(parts) == 1:
+                if "" not in modules:
+                    modules[""] = {}
+                modules[""][parts[0]] = type_
+            else:
+                module = ".".join(parts[:-1])
+                if module not in modules:
+                    modules[module] = {}
+                modules[module][parts[-1]] = type_
+
+        # Generate classes for each module
+        classes = []
+        for module_path, signals in sorted(modules.items()):
+            if module_path == "":
+                class_name = f"{self.options.class_prefix}{to_capwords(module_name)}{self.options.class_suffix}"
+            else:
+                class_name = f"{self.options.class_prefix}{to_capwords(module_path.split('.')[-1])}{self.options.class_suffix}"
+
+            attributes = []
+            for name, type_ in sorted(signals.items()):
+                type_annotation = type_.__name__
+                if self.options.typing_style == "legacy":
+                    type_annotation = f"'{type_annotation}'"
+
+                comment = ""
+                if self.options.include_metadata:
+                    full_path = f"{module_path}.{name}" if module_path else name
+                    comment = f"Signal at path: {full_path}"
+
+                attributes.append(self.template.render_signal(
+                    name=name,
+                    type_annotation=type_annotation,
+                    comment=comment
+                ))
+
+            docstring = ""
+            if self.options.include_docstrings:
+                docstring = f'''    """Type stub for {module_path if module_path else module_name} module.
+
+    This class provides type hints for signals in this module.
+    Total signals: {len(signals)}
+    """
+'''
+
+            classes.append(self.template.render_class(
+                class_name=class_name,
+                docstring=docstring,
+                attributes="\n".join(attributes)
+            ))
+
+        return classes
 
 
 class StubTemplate:
@@ -125,11 +350,24 @@ Usage:
             'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
             'template_name': self.template_name,
             'module_name': 'dut',
-            'imports': 'from cocotb.handle import HierarchyObject'
+            'imports': 'from cocotb.handle import HierarchyObject',
+            'output_format': 'pyi'
         }
         defaults.update(kwargs)
 
-        return self.header_template.format(**defaults)
+        # Modify header based on output format
+        if defaults.get('output_format') == 'py':
+            header_comment = "# This is an auto-generated Python module for cocotb testbench"
+        else:
+            header_comment = "# This is an auto-generated stub file for cocotb testbench"
+
+        # Replace the first line in the template
+        header_content = self.header_template.format(**defaults)
+        lines = header_content.split('\n')
+        if lines:
+            lines[0] = header_comment
+        
+        return '\n'.join(lines)
 
     def render_class(self, **kwargs) -> str:
         """Render a class template with provided variables."""

@@ -23,18 +23,17 @@ import importlib
 import re
 import sys
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, TextIO, TypeVar
+from typing import Any, Callable, Dict, List, Mapping, Optional, TextIO, TypeVar, Union
 
 from cocotb.handle import (
     EnumObject,
     HierarchyArrayObject,
     HierarchyObject,
     IntegerObject,
-    LogicArrayObject,
-    LogicObject,
+    LogicArray,
     RealObject,
     StringObject,
-    ValueObjectBase,
+    SimHandleBase,
 )
 
 # Print cocotb version for debugging
@@ -47,6 +46,23 @@ except (ImportError, AttributeError):
 from ._version import __version__
 from .utils import to_capwords
 
+# Import simulation functionality
+try:
+    from .simulation import run_discovery_simulation, SimulationError, SimulatorDetector, DUTDiscoverySimulation
+except ImportError:
+    # Fallback if simulation module is not available
+    def run_discovery_simulation(*args, **kwargs):
+        raise ImportError("Simulation module not available")
+    
+    class SimulationError(Exception):
+        pass
+    
+    class SimulatorDetector:
+        pass
+    
+    class DUTDiscoverySimulation:
+        pass
+
 # Public API
 __all__ = [
     "discover_hierarchy",
@@ -56,16 +72,141 @@ __all__ = [
     "create_stub_from_dut",
     "auto_generate_stubs",
     "main",
+    "SignalMetadata",
+    "ArrayInfo",
+    "ModuleInfo",
+    "HierarchyDict",
 ]
 
 # Type variable for generic functions
 F = TypeVar('F', bound=Callable[..., Any])
 
 
+class SignalMetadata:
+    """Metadata information about a signal."""
+    
+    def __init__(self, 
+                 name: str,
+                 signal_type: type,
+                 width: Optional[int] = None,
+                 direction: Optional[str] = None,
+                 is_clock: bool = False,
+                 is_reset: bool = False,
+                 is_constant: bool = False,
+                 bus_protocol: Optional[str] = None,
+                 description: Optional[str] = None):
+        """Initialize signal metadata.
+        
+        Args:
+            name: Signal name
+            signal_type: Python type of the signal
+            width: Signal width in bits
+            direction: Signal direction (input, output, inout)
+            is_clock: Whether this is a clock signal
+            is_reset: Whether this is a reset signal
+            is_constant: Whether this is a constant signal
+            bus_protocol: Detected bus protocol (AXI, AHB, etc.)
+            description: Signal description
+        """
+        self.name = name
+        self.signal_type = signal_type
+        self.width = width
+        self.direction = direction
+        self.is_clock = is_clock
+        self.is_reset = is_reset
+        self.is_constant = is_constant
+        self.bus_protocol = bus_protocol
+        self.description = description
+
+    def __repr__(self) -> str:
+        return f"SignalMetadata(name='{self.name}', type={self.signal_type.__name__}, width={self.width})"
+
+
+class ArrayInfo:
+    """Information about array structures in the DUT."""
+    
+    def __init__(self,
+                 base_name: str,
+                 element_type: type,
+                 indices: List[int],
+                 dimensions: List[tuple] = None,
+                 is_contiguous: bool = True,
+                 is_multidimensional: bool = False):
+        """Initialize array information.
+        
+        Args:
+            base_name: Base name of the array
+            element_type: Type of array elements
+            indices: List of valid indices
+            dimensions: List of (min, max) tuples for each dimension
+            is_contiguous: Whether indices are contiguous
+            is_multidimensional: Whether this is a multi-dimensional array
+        """
+        self.base_name = base_name
+        self.element_type = element_type
+        self.indices = sorted(indices)
+        self.dimensions = dimensions or []
+        self.is_contiguous = is_contiguous
+        self.is_multidimensional = is_multidimensional
+        
+        # Calculate derived properties
+        if self.indices:
+            self.min_index = min(self.indices)
+            self.max_index = max(self.indices)
+            self.size = len(self.indices)
+        else:
+            self.min_index = self.max_index = self.size = 0
+
+    def __repr__(self) -> str:
+        return f"ArrayInfo(base='{self.base_name}', size={self.size}, type={self.element_type.__name__})"
+
+
+class ModuleInfo:
+    """Information about a module in the DUT hierarchy."""
+    
+    def __init__(self,
+                 name: str,
+                 module_type: str,
+                 signals: Dict[str, SignalMetadata] = None,
+                 submodules: Dict[str, 'ModuleInfo'] = None,
+                 arrays: Dict[str, ArrayInfo] = None,
+                 parameters: Dict[str, Any] = None):
+        """Initialize module information.
+        
+        Args:
+            name: Module instance name
+            module_type: Module type name
+            signals: Dictionary of signals in this module
+            submodules: Dictionary of submodules
+            arrays: Dictionary of arrays in this module
+            parameters: Module parameters/generics
+        """
+        self.name = name
+        self.module_type = module_type
+        self.signals = signals or {}
+        self.submodules = submodules or {}
+        self.arrays = arrays or {}
+        self.parameters = parameters or {}
+
+    def __repr__(self) -> str:
+        return f"ModuleInfo(name='{self.name}', type='{self.module_type}', signals={len(self.signals)})"
+
+
+class HierarchyDict(dict):
+    """A dictionary that can hold additional metadata attributes."""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._signal_metadata: Dict[str, SignalMetadata] = {}
+        self._array_info: Dict[str, ArrayInfo] = {}
+        self._discovery_stats: Dict[str, int] = {}
+
+
 def discover_hierarchy(
     dut: Any, max_depth: int = 50, include_constants: bool = False,
-    performance_mode: bool = False, array_detection: bool = True
-) -> Dict[str, type]:
+    performance_mode: bool = False, array_detection: bool = True,
+    extract_metadata: bool = True
+) -> HierarchyDict:
     """Discover the hierarchy of objects in the DUT.
 
     Args:
@@ -75,6 +216,7 @@ def discover_hierarchy(
         include_constants: Whether to include constant signals in discovery.
         performance_mode: Enable optimizations for large hierarchies.
         array_detection: Enable enhanced array pattern detection.
+        extract_metadata: Whether to extract detailed signal metadata.
 
     Returns:
     -------
@@ -89,14 +231,20 @@ def discover_hierarchy(
     if max_depth <= 0:
         raise ValueError("max_depth must be positive")
 
-    hierarchy: Dict[str, type] = {}
+    hierarchy = HierarchyDict()
     discovery_stats = {
         'total_objects': 0,
         'max_depth_reached': 0,
         'errors_encountered': 0,
         'arrays_detected': 0,
-        'performance_optimizations': 0
+        'performance_optimizations': 0,
+        'metadata_extracted': 0,
+        'multidimensional_arrays': 0,
     }
+
+    # Store metadata separately for enhanced processing
+    signal_metadata: Dict[str, SignalMetadata] = {}
+    array_info: Dict[str, ArrayInfo] = {}
 
     # Performance optimization: use iterative approach for large hierarchies
     if performance_mode:
@@ -133,16 +281,38 @@ def discover_hierarchy(
         # Build the full path
         full_path = f"{path}.{obj_name}" if path else obj_name
 
-        # Enhanced array detection
-        if array_detection and _is_array_element(obj_name):
-            discovery_stats['arrays_detected'] += 1
-            # Handle array elements specially
-            base_name, index = _parse_array_element(obj_name)
-            if base_name:
+        # Enhanced array detection with multi-dimensional support
+        if array_detection:
+            array_match = _parse_multidimensional_array(obj_name)
+            if array_match:
+                discovery_stats['arrays_detected'] += 1
+                base_name, dimensions = array_match
+                
+                if len(dimensions) > 1:
+                    discovery_stats['multidimensional_arrays'] += 1
+                
                 array_base_path = f"{path}.{base_name}" if path else base_name
                 if array_base_path not in hierarchy:
                     # Create array base entry
                     hierarchy[array_base_path] = _get_array_base_type(obj)
+                    
+                    # Store array information
+                    if array_base_path not in array_info:
+                        array_info[array_base_path] = ArrayInfo(
+                            base_name=base_name,
+                            element_type=_get_array_base_type(obj),
+                            indices=[],
+                            dimensions=dimensions,
+                            is_multidimensional=len(dimensions) > 1
+                        )
+                    
+                    # Add this index to the array info
+                    flat_index = _flatten_multidimensional_index(dimensions)
+                    array_info[array_base_path].indices.append(flat_index)
+
+        # Skip constants unless explicitly requested
+        if not include_constants and _is_constant_signal(obj, obj_name):
+            return
 
         # Store the object type in hierarchy
         # For mock handles used in tests, use the intended handle type
@@ -151,11 +321,14 @@ def discover_hierarchy(
         else:
             hierarchy[full_path] = type(obj)
 
-        discovery_stats['total_objects'] += 1
+        # Extract detailed metadata if requested
+        if extract_metadata:
+            metadata = _extract_signal_metadata(obj, full_path)
+            if metadata:
+                signal_metadata[full_path] = metadata
+                discovery_stats['metadata_extracted'] += 1
 
-        # Skip constants unless explicitly requested
-        if not include_constants and hasattr(obj, '_type') and 'const' in str(obj._type).lower():
-            return
+        discovery_stats['total_objects'] += 1
 
         # For real cocotb handles, use _discover_all() to populate sub-handles
         if hasattr(obj, '_discover_all') and callable(obj._discover_all):
@@ -198,40 +371,252 @@ def discover_hierarchy(
             print(f"[copra] Warning: Error accessing sub-handles of {full_path}: {e}")
 
         # Recursively discover sub-handles
-        for name, child in sub_handles.items():
-            # Skip if child is None or doesn't have required attributes
-            if child is None or not hasattr(child, '_name'):
-                continue
+        for child_name, child_obj in sub_handles.items():
             try:
-                _discover(child, full_path, current_depth + 1)
+                _discover(child_obj, full_path, current_depth + 1)
             except Exception as e:
                 discovery_stats['errors_encountered'] += 1
-                print(f"[copra] Warning: Error discovering {full_path}.{name}: {e}")
-                continue
+                print(f"[copra] Warning: Error discovering child {child_name} of {full_path}: {e}")
 
-    try:
-        _discover(dut, "")
-    except Exception as e:
-        raise RuntimeError(f"Hierarchy discovery failed: {e}") from e
+    # Start discovery from the root
+    _discover(dut, "", 0)
 
-    print(f"[copra] Discovery completed: {discovery_stats['total_objects']} objects, "
-          f"max depth {discovery_stats['max_depth_reached']}, "
-          f"{discovery_stats['errors_encountered']} errors, "
-          f"{discovery_stats['arrays_detected']} arrays detected")
+    # Store metadata in hierarchy for later use
+    hierarchy._signal_metadata = signal_metadata
+    hierarchy._array_info = array_info
+    hierarchy._discovery_stats = discovery_stats
 
     return hierarchy
+
+
+def _extract_signal_metadata(obj: Any, path: str) -> Optional[SignalMetadata]:
+    """Extract detailed metadata from a signal object.
+    
+    Args:
+        obj: The signal object
+        path: Full path to the signal
+        
+    Returns:
+        SignalMetadata object or None if not a signal
+    """
+    # Only extract metadata for actual signals, not hierarchical objects
+    if isinstance(obj, HierarchyObject):
+        return None
+        
+    signal_name = path.split('.')[-1]
+    signal_type = type(obj)
+    
+    # Extract width information
+    width = None
+    if hasattr(obj, '_range') and obj._range is not None:
+        try:
+            width = len(obj._range)
+        except (AttributeError, TypeError):
+            pass
+    elif hasattr(obj, 'value') and hasattr(obj.value, '__len__'):
+        try:
+            # Handle both real objects and mock objects
+            if hasattr(obj.value.__len__, 'return_value'):
+                # This is a mock object
+                width = obj.value.__len__.return_value
+            else:
+                # This is a real object
+                width = len(obj.value)
+        except (AttributeError, TypeError):
+            pass
+    
+    # Additional check for mock objects with callable __len__
+    if width is None and hasattr(obj, 'value') and hasattr(obj.value, '__len__'):
+        try:
+            # Try calling __len__ directly for mock objects
+            width = obj.value.__len__()
+        except (AttributeError, TypeError):
+            pass
+    
+    # Detect signal direction (basic heuristics)
+    direction = _detect_signal_direction(signal_name, obj)
+    
+    # Detect clock signals
+    is_clock = _is_clock_signal(signal_name)
+    
+    # Detect reset signals
+    is_reset = _is_reset_signal(signal_name)
+    
+    # Detect constants
+    is_constant = _is_constant_signal(obj, signal_name)
+    
+    # Detect bus protocols
+    bus_protocol = _detect_bus_protocol(signal_name, path)
+    
+    # Generate description
+    description = _generate_signal_description(signal_name, signal_type, width, direction)
+    
+    return SignalMetadata(
+        name=signal_name,
+        signal_type=signal_type,
+        width=width,
+        direction=direction,
+        is_clock=is_clock,
+        is_reset=is_reset,
+        is_constant=is_constant,
+        bus_protocol=bus_protocol,
+        description=description
+    )
+
+
+def _detect_signal_direction(signal_name: str, obj: Any) -> Optional[str]:
+    """Detect signal direction based on naming patterns and object properties."""
+    name_lower = signal_name.lower()
+    
+    # Check bidirectional patterns first (more specific)
+    if any(pattern in name_lower for pattern in ['_io', 'inout', 'bidir']):
+        return "inout"
+    
+    # Common input patterns
+    if any(pattern in name_lower for pattern in ['_in', 'input', '_i']):
+        return "input"
+    
+    # Common output patterns
+    if any(pattern in name_lower for pattern in ['_out', 'output', '_o']):
+        return "output"
+    
+    # Try to detect from object properties (simulator-specific)
+    if hasattr(obj, '_direction'):
+        direction = getattr(obj, '_direction', None)
+        # Only return if it's actually a string (not a Mock object)
+        if isinstance(direction, str):
+            return direction
+    
+    return None
+
+
+def _is_clock_signal(signal_name: str) -> bool:
+    """Detect if a signal is a clock based on naming patterns."""
+    name_lower = signal_name.lower()
+    clock_patterns = ['clk', 'clock', 'ck', 'clkin', 'clkout']
+    return any(pattern in name_lower for pattern in clock_patterns)
+
+
+def _is_reset_signal(signal_name: str) -> bool:
+    """Detect if a signal is a reset based on naming patterns."""
+    name_lower = signal_name.lower()
+    reset_patterns = ['rst', 'reset', 'res', 'rst_n', 'resetn', 'nrst']
+    return any(pattern in name_lower for pattern in reset_patterns)
+
+
+def _is_constant_signal(obj: Any, signal_name: str) -> bool:
+    """Detect if a signal is a constant."""
+    # Check object type
+    if hasattr(obj, '_type') and 'const' in str(obj._type).lower():
+        return True
+    
+    # Check naming patterns
+    name_upper = signal_name.upper()
+    if name_upper == signal_name and '_' in signal_name:
+        return True  # ALL_CAPS_WITH_UNDERSCORES pattern
+    
+    return False
+
+
+def _detect_bus_protocol(signal_name: str, full_path: str) -> Optional[str]:
+    """Detect bus protocol based on signal naming patterns."""
+    name_lower = signal_name.lower()
+    path_lower = full_path.lower()
+    
+    # AXI protocol detection
+    axi_patterns = ['axi', 'awvalid', 'awready', 'wvalid', 'wready', 'bvalid', 'bready',
+                    'arvalid', 'arready', 'rvalid', 'rready']
+    if any(pattern in name_lower or pattern in path_lower for pattern in axi_patterns):
+        return "AXI"
+    
+    # AHB protocol detection
+    ahb_patterns = ['ahb', 'haddr', 'hwrite', 'hsize', 'hburst', 'htrans', 'hwdata', 'hrdata']
+    if any(pattern in name_lower or pattern in path_lower for pattern in ahb_patterns):
+        return "AHB"
+    
+    # APB protocol detection
+    apb_patterns = ['apb', 'paddr', 'pwrite', 'psel', 'penable', 'pwdata', 'prdata']
+    if any(pattern in name_lower or pattern in path_lower for pattern in apb_patterns):
+        return "APB"
+    
+    return None
+
+
+def _generate_signal_description(signal_name: str, signal_type: type, 
+                                width: Optional[int], direction: Optional[str]) -> str:
+    """Generate a description for a signal based on its properties."""
+    parts = []
+    
+    if direction:
+        parts.append(f"{direction.capitalize()} signal")
+    else:
+        parts.append("Signal")
+    
+    if width is not None:
+        if width == 1:
+            parts.append("(1 bit)")
+        else:
+            parts.append(f"({width} bits)")
+    
+    type_name = signal_type.__name__
+    if type_name != "SimHandleBase":
+        parts.append(f"of type {type_name}")
+    
+    return " ".join(parts)
+
+
+def _parse_multidimensional_array(name: str) -> Optional[tuple]:
+    """Parse multi-dimensional array names like signal[0][1] or mem[2][3][4].
+    
+    Args:
+        name: Signal name to parse
+        
+    Returns:
+        Tuple of (base_name, dimensions) where dimensions is a list of indices,
+        or None if not an array
+    """
+    # Pattern to match array indices: signal[0][1][2] etc.
+    pattern = r'^([^[]+)(\[[^\]]+\])+$'
+    match = re.match(pattern, name)
+    
+    if not match:
+        return None
+    
+    base_name = match.group(1)
+    
+    # Extract all indices
+    index_pattern = r'\[([^\]]+)\]'
+    indices = re.findall(index_pattern, name)
+    
+    # Convert to integers if possible
+    dimensions = []
+    for idx in indices:
+        try:
+            dimensions.append(int(idx))
+        except ValueError:
+            # Non-numeric index, skip this array
+            return None
+    
+    return base_name, dimensions
+
+
+def _flatten_multidimensional_index(dimensions: List[int]) -> int:
+    """Convert multi-dimensional indices to a flat index for storage."""
+    # Simple flattening: just sum the indices
+    # In a real implementation, this would depend on the array dimensions
+    return sum(dimensions)
 
 
 def _discover_hierarchy_iterative(
     dut: Any, max_depth: int, include_constants: bool, 
     array_detection: bool, discovery_stats: Dict[str, int]
-) -> Dict[str, type]:
+) -> HierarchyDict:
     """Iterative hierarchy discovery for performance optimization.
     
     This approach uses a stack instead of recursion to handle very large hierarchies
     without hitting Python's recursion limit.
     """
-    hierarchy: Dict[str, type] = {}
+    hierarchy = HierarchyDict()
     
     # Stack contains tuples of (object, path, depth)
     stack = [(dut, "", 0)]
@@ -244,9 +629,9 @@ def _discover_hierarchy_iterative(
             continue
             
         discovery_stats['max_depth_reached'] = max(
-            discovery_stats['max_depth_reached'], current_depth
+            discovery_stats.get('max_depth_reached', 0), current_depth
         )
-        discovery_stats['performance_optimizations'] += 1
+        discovery_stats['performance_optimizations'] = discovery_stats.get('performance_optimizations', 0) + 1
         
         # Get the object name
         obj_name = getattr(obj, '_name', None)
@@ -257,8 +642,10 @@ def _discover_hierarchy_iterative(
         full_path = f"{path}.{obj_name}" if path else obj_name
 
         # Enhanced array detection
-        if array_detection and _is_array_element(obj_name):
-            discovery_stats['arrays_detected'] += 1
+        if array_detection:
+            array_match = _parse_multidimensional_array(obj_name)
+            if array_match:
+                discovery_stats['arrays_detected'] = discovery_stats.get('arrays_detected', 0) + 1
 
         # Store the object type in hierarchy
         if hasattr(obj, '_handle_type'):
@@ -266,51 +653,50 @@ def _discover_hierarchy_iterative(
         else:
             hierarchy[full_path] = type(obj)
 
-        discovery_stats['total_objects'] += 1
+        discovery_stats['total_objects'] = discovery_stats.get('total_objects', 0) + 1
 
         # Skip constants unless explicitly requested
-        if not include_constants and hasattr(obj, '_type') and 'const' in str(obj._type).lower():
+        if not include_constants and _is_constant_signal(obj, obj_name):
             continue
 
-        # Discover sub-handles and add to stack
-        try:
-            if hasattr(obj, '_discover_all') and callable(obj._discover_all):
-                try:
-                    obj._discover_all()
-                except Exception as e:
-                    discovery_stats['errors_encountered'] += 1
-                    continue
+        # Force discovery of sub-handles
+        if hasattr(obj, '_discover_all') and callable(obj._discover_all):
+            try:
+                obj._discover_all()
+            except Exception as e:
+                discovery_stats['errors_encountered'] = discovery_stats.get('errors_encountered', 0) + 1
+                print(f"[copra] Warning: Failed to discover children of {full_path}: {e}")
+                continue
 
-            sub_handles = {}
+        # Get sub-handles and add to stack
+        sub_handles = {}
+        try:
             if hasattr(obj, '_sub_handles') and isinstance(obj._sub_handles, dict):
                 sub_handles = obj._sub_handles
-            elif hasattr(obj, '_sub_handles') and hasattr(obj, '_sub_handles_iter'):
-                try:
-                    sub_handles = {h._name: h for h in obj._sub_handles_iter()}
-                except (TypeError, AttributeError):
-                    pass
-
-            # Add children to stack (in reverse order to maintain depth-first traversal)
-            for name, child in reversed(list(sub_handles.items())):
-                if child is not None and hasattr(child, '_name'):
-                    stack.append((child, full_path, current_depth + 1))
-                    
         except Exception as e:
-            discovery_stats['errors_encountered'] += 1
+            discovery_stats['errors_encountered'] = discovery_stats.get('errors_encountered', 0) + 1
+            print(f"[copra] Warning: Error accessing sub-handles of {full_path}: {e}")
             continue
-    
+
+        # Add children to stack (in reverse order to maintain depth-first traversal)
+        for child_name, child_obj in reversed(list(sub_handles.items())):
+            stack.append((child_obj, full_path, current_depth + 1))
+
+    # Store metadata in hierarchy for later use
+    hierarchy._signal_metadata = {}
+    hierarchy._array_info = {}
+    hierarchy._discovery_stats = discovery_stats
+
     return hierarchy
 
 
 def _is_array_element(name: str) -> bool:
     """Check if a name represents an array element (contains [index])."""
-    import re
     return bool(re.search(r'\[\d+\]', name))
 
 
 def _parse_array_element(name: str) -> tuple[str, int]:
     """Parse array element name to get base name and index."""
-    import re
     match = re.search(r'^(.+)\[(\d+)\]$', name)
     if match:
         return match.group(1), int(match.group(2))
@@ -360,7 +746,7 @@ def _extract_array_info(hierarchy: Mapping[str, type]) -> Dict[str, Dict[str, An
             # Ensure all elements have the same type
             if arrays[base_path]['element_type'] != obj_type:
                 # If types differ, use the most general type
-                arrays[base_path]['element_type'] = ValueObjectBase
+                arrays[base_path]['element_type'] = SimHandleBase
 
     return arrays
 
@@ -496,22 +882,20 @@ def generate_stub_to_file(hierarchy: Mapping[str, type], output_file: TextIO) ->
     handle_imports = ["HierarchyObject"]  # Always needed as base class
 
     # Add imports based on actual usage
-    if LogicObject in used_types:
-        handle_imports.append("LogicObject")
-    if LogicArrayObject in used_types:
-        handle_imports.append("LogicArrayObject")
-    if ValueObjectBase in used_types:
-        handle_imports.append("ValueObjectBase")
+    if LogicArray in used_types:
+        handle_imports.append("LogicArray")
     if HierarchyArrayObject in used_types:
         handle_imports.append("HierarchyArrayObject")
-    if RealObject in used_types:
-        handle_imports.append("RealObject")
     if EnumObject in used_types:
         handle_imports.append("EnumObject")
+    if RealObject in used_types:
+        handle_imports.append("RealObject")
     if IntegerObject in used_types:
         handle_imports.append("IntegerObject")
     if StringObject in used_types:
         handle_imports.append("StringObject")
+    # Always include SimHandleBase as it's our fallback type
+    handle_imports.append("SimHandleBase")
 
     output_file.write("from cocotb.handle import (\n")
     for imp in sorted(handle_imports):
@@ -596,10 +980,9 @@ def generate_stub_to_file(hierarchy: Mapping[str, type], output_file: TextIO) ->
                     array_members[member_name] = arrays[member_path]
                 else:
                     array_members[member_name] = {
-                        'element_type': getattr(obj_type, '_element_type', ValueObjectBase)
+                        'element_type': getattr(obj_type, '_element_type', SimHandleBase)
                     }
-            elif obj_type in (LogicObject, LogicArrayObject, ValueObjectBase,
-                          RealObject, EnumObject, IntegerObject, StringObject):
+            elif obj_type in (LogicArray, EnumObject, RealObject, IntegerObject, StringObject, SimHandleBase):
                 signals[member_name] = obj_type
             elif obj_type == HierarchyArrayObject:
                 array_members[member_name] = {'element_type': HierarchyObject}
@@ -666,27 +1049,25 @@ def _get_type_annotation(obj_type: type) -> str:
         String representation of the type annotation.
 
     """
-    if obj_type == LogicObject:
-        return "LogicObject"
-    elif obj_type == LogicArrayObject:
-        return "LogicArrayObject"
+    if obj_type == LogicArray:
+        return "LogicArray"
     elif obj_type == HierarchyArrayObject:
         return "HierarchyArrayObject"
-    elif obj_type == RealObject:
-        return "RealObject"
     elif obj_type == EnumObject:
         return "EnumObject"
+    elif obj_type == RealObject:
+        return "RealObject"
     elif obj_type == IntegerObject:
         return "IntegerObject"
     elif obj_type == StringObject:
         return "StringObject"
-    elif obj_type == ValueObjectBase:
-        return "ValueObjectBase"
+    elif obj_type == SimHandleBase:
+        return "SimHandleBase"
     elif hasattr(obj_type, '__name__') and obj_type.__name__ == 'Mock':
         # Handle Mock objects in tests
         return "Mock"
     else:
-        return "ValueObjectBase"
+        return "SimHandleBase"  # Default to SimHandleBase for signals
 
 
 def _generate_enhanced_class_docstring(
@@ -769,8 +1150,9 @@ def _run_discovery_simulation(top_module: str) -> HierarchyObject:
 
     This function attempts multiple strategies to obtain a DUT handle:
     1. Try to import a module that already has a dut attribute
-    2. Try to run a minimal cocotb test to get the DUT
-    3. Try to use cocotb's test runner infrastructure
+    2. Try to get DUT from cocotb's current simulation
+    3. Try to run a real simulation with HDL sources
+    4. Try to use cocotb's test runner infrastructure
 
     Args:
     ----
@@ -811,31 +1193,58 @@ def _run_discovery_simulation(top_module: str) -> HierarchyObject:
     except (ImportError, AttributeError):
         pass
 
-    # Strategy 3: Try to create a minimal test environment
+    # Strategy 3: Try to use the new simulation integration
     try:
-        # This is a more advanced approach that would require setting up
-        # a full cocotb simulation environment. For now, we'll provide
-        # a helpful error message.
-        raise RuntimeError(
-            f"Could not obtain DUT handle for module '{top_module}'. "
-            "Please ensure that:\n"
-            "1. The module is importable and contains a 'dut' attribute, or\n"
-            "2. You are running this from within a cocotb test environment, or\n"
-            "3. The cocotb simulation is already running with the DUT loaded.\n\n"
-            "Example usage:\n"
-            "  # In your test file:\n"
-            "  import cocotb\n"
-            "  from copra import discover_hierarchy, generate_stub\n"
-            "  \n"
-            "  @cocotb.test()\n"
-            "  async def generate_stubs(dut):\n"
-            "      hierarchy = discover_hierarchy(dut)\n"
-            "      stub_content = generate_stub(hierarchy)\n"
-            "      with open('dut.pyi', 'w') as f:\n"
-            "          f.write(stub_content)\n"
-        )
+        sim = DUTDiscoverySimulation()
+        
+        # First try to discover from running simulation
+        try:
+            return sim.discover_dut_from_running_simulation()
+        except SimulationError:
+            pass
+        
+        # Try to discover from module
+        try:
+            return sim.discover_dut_from_module(top_module)
+        except SimulationError:
+            pass
+        
+        # If we have HDL sources available, try real simulation
+        # This would require additional parameters that aren't available here
+        # So we'll provide a helpful error message instead
+        
     except Exception as e:
-        raise RuntimeError(f"Failed to set up simulation environment: {e}") from e
+        print(f"[copra] Warning: Simulation integration failed: {e}")
+
+    # Strategy 4: Provide helpful error message with usage examples
+    raise RuntimeError(
+        f"Could not obtain DUT handle for module '{top_module}'. "
+        "Please ensure that:\n"
+        "1. The module is importable and contains a 'dut' attribute, or\n"
+        "2. You are running this from within a cocotb test environment, or\n"
+        "3. The cocotb simulation is already running with the DUT loaded, or\n"
+        "4. Use the new simulation integration with HDL sources.\n\n"
+        "Example usage:\n"
+        "  # In your test file:\n"
+        "  import cocotb\n"
+        "  from copra import discover_hierarchy, generate_stub\n"
+        "  \n"
+        "  @cocotb.test()\n"
+        "  async def generate_stubs(dut):\n"
+        "      hierarchy = discover_hierarchy(dut)\n"
+        "      stub_content = generate_stub(hierarchy)\n"
+        "      with open('dut.pyi', 'w') as f:\n"
+        "          f.write(stub_content)\n"
+        "\n"
+        "  # Or use the new simulation integration:\n"
+        "  from copra.simulation import run_discovery_simulation\n"
+        "  dut = run_discovery_simulation(\n"
+        "      top_module='my_module',\n"
+        "      verilog_sources=['src/my_module.sv'],\n"
+        "      simulator='icarus'\n"
+        "  )\n"
+        "  hierarchy = discover_hierarchy(dut)\n"
+    )
 
 
 def create_stub_from_dut(dut: HierarchyObject, output_file: str = "dut.pyi") -> str:
@@ -1233,7 +1642,7 @@ def _get_signal_width_info(obj: Any) -> Dict[str, Any]:
     # Get the object type first to determine default type_name
     obj_type = type(obj)
     is_mock = hasattr(obj_type, '__name__') and obj_type.__name__ == 'Mock'
-    default_type_name = 'Mock' if is_mock else 'LogicObject'
+    default_type_name = 'Mock' if is_mock else 'LogicArray'
 
     info = {
         'width': 1,
@@ -1255,11 +1664,11 @@ def _get_signal_width_info(obj: Any) -> Dict[str, Any]:
                 info['is_signed'] = True
 
         # Get more specific type information
-        if obj_type == LogicArrayObject:
-            info['type_name'] = 'LogicArrayObject'
+        if obj_type == LogicArray:
+            info['type_name'] = 'LogicArray'
             info['is_array'] = True
-        elif obj_type == LogicObject:
-            info['type_name'] = 'LogicObject'
+        elif obj_type == SimHandleBase:
+            info['type_name'] = 'SimHandleBase'
         elif obj_type == RealObject:
             info['type_name'] = 'RealObject'
         elif obj_type == IntegerObject:

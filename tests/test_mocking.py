@@ -19,10 +19,10 @@ class TestMockSignal:
 
     def test_mock_signal_creation(self):
         """Test basic MockSignal creation."""
-        signal = MockSignal("test_signal", "LogicObject", 8)
+        signal = MockSignal("test_signal", "SimHandleBase", 8)
 
         assert signal._name == "test_signal"
-        assert signal._signal_type == "LogicObject"
+        assert signal._signal_type == "SimHandleBase"
         assert signal._width == 8
         assert signal.value == 0
 
@@ -81,12 +81,12 @@ class TestMockSignal:
 
     def test_mock_signal_string_representation(self):
         """Test MockSignal string representations."""
-        signal = MockSignal("test_signal", "LogicObject", 8)
+        signal = MockSignal("test_signal", "SimHandleBase", 8)
         signal.value = 42
 
         assert str(signal) == "MockSignal(test_signal=42)"
         assert "MockSignal(name='test_signal'" in repr(signal)
-        assert "type='LogicObject'" in repr(signal)
+        assert "type='SimHandleBase'" in repr(signal)
         assert "width=8" in repr(signal)
         assert "value=42" in repr(signal)
 
@@ -106,11 +106,11 @@ class TestMockModule:
         """Test adding signals to MockModule."""
         module = MockModule("test_module")
 
-        signal = module.add_signal("test_signal", "LogicObject", 16)
+        signal = module.add_signal("test_signal", "SimHandleBase", 16)
 
         assert isinstance(signal, MockSignal)
         assert signal._name == "test_signal"
-        assert signal._signal_type == "LogicObject"
+        assert signal._signal_type == "SimHandleBase"
         assert signal._width == 16
         assert "test_signal" in module._children
 
@@ -130,7 +130,7 @@ class TestMockModule:
         module = MockModule("test_module")
 
         # Add a signal
-        module.add_signal("existing_signal", "LogicObject")
+        module.add_signal("existing_signal", "SimHandleBase")
 
         # Access existing signal
         signal = module.existing_signal
@@ -196,12 +196,12 @@ class TestMockDUT:
         """Test MockDUT creation with stub file."""
         stub_content = '''
 class TestDut:
-    clk: LogicObject
-    rst_n: LogicObject
+    clk: SimHandleBase
+    rst_n: SimHandleBase
     submodule: SubModule
 
 class SubModule:
-    reg_a: LogicObject
+    reg_a: SimHandleBase
 '''
 
         with tempfile.NamedTemporaryFile(mode='w', suffix='.pyi', delete=False) as f:
@@ -222,11 +222,11 @@ class SubModule:
         """Test adding signals to MockDUT."""
         dut = MockDUT(name="test_dut")
 
-        signal = dut.add_signal("test_signal", "LogicArrayObject", 32)
+        signal = dut.add_signal("test_signal", "LogicArray", 32)
 
         assert isinstance(signal, MockSignal)
         assert signal._name == "test_signal"
-        assert signal._signal_type == "LogicArrayObject"
+        assert signal._signal_type == "LogicArray"
         assert signal._width == 32
         assert "test_signal" in dut._signals
 
@@ -246,7 +246,7 @@ class SubModule:
         dut = MockDUT(name="test_dut")
 
         # Add existing signal and module
-        dut.add_signal("clk", "LogicObject")
+        dut.add_signal("clk", "SimHandleBase")
         dut.add_submodule("core", "CoreModule")
 
         # Access existing signal
@@ -517,17 +517,17 @@ class TestEnhancedMockSignal:
 
     def test_signal_initialization(self):
         """Test signal initialization with width."""
-        signal = MockSignal("test_signal", "LogicObject", width=8)
+        signal = MockSignal("test_signal", "SimHandleBase", width=8)
 
         assert signal._name == "test_signal"
-        assert signal._handle_type == "LogicObject"
+        assert signal._handle_type == "SimHandleBase"
         assert signal._width == 8
         assert signal._value == 0
         assert not signal._is_driven
 
     def test_value_change_tracking(self):
         """Test that value changes are tracked in history."""
-        signal = MockSignal("test_signal", "LogicObject")
+        signal = MockSignal("test_signal", "SimHandleBase")
 
         # Change value
         signal.value = 1
@@ -546,7 +546,7 @@ class TestEnhancedMockSignal:
 
     def test_callback_functionality(self):
         """Test callback registration and execution."""
-        signal = MockSignal("test_signal", "LogicObject")
+        signal = MockSignal("test_signal", "SimHandleBase")
 
         callback_calls = []
 
@@ -568,7 +568,7 @@ class TestEnhancedMockSignal:
 
     def test_callback_removal(self):
         """Test callback removal."""
-        signal = MockSignal("test_signal", "LogicObject")
+        signal = MockSignal("test_signal", "SimHandleBase")
 
         callback_calls = []
 
@@ -585,7 +585,7 @@ class TestEnhancedMockSignal:
 
     def test_width_validation(self):
         """Test signal width validation."""
-        signal = MockSignal("test_signal", "LogicObject", width=4)
+        signal = MockSignal("test_signal", "SimHandleBase", width=4)
 
         # Valid value (within 4-bit range)
         signal.value = 15  # 0xF
@@ -600,7 +600,7 @@ class TestEnhancedMockSignal:
 
     def test_driven_state_tracking(self):
         """Test tracking of driven state."""
-        signal = MockSignal("test_signal", "LogicObject")
+        signal = MockSignal("test_signal", "SimHandleBase")
 
         assert not signal._is_driven
 
@@ -627,7 +627,7 @@ class TestBusFunctionalModel:
     def test_signal_registration(self):
         """Test signal registration with BFM."""
         bfm = BusFunctionalModel("test_bus")
-        signal = MockSignal("data", "LogicObject", width=8)
+        signal = MockSignal("data", "SimHandleBase", width=8)
 
         bfm.add_signal("data", signal)
         assert "data" in bfm.signals
@@ -638,8 +638,8 @@ class TestBusFunctionalModel:
         bfm = BusFunctionalModel("test_bus")
 
         # Add signals
-        data_signal = MockSignal("data", "LogicObject", width=8)
-        valid_signal = MockSignal("valid", "LogicObject")
+        data_signal = MockSignal("data", "SimHandleBase", width=8)
+        valid_signal = MockSignal("valid", "SimHandleBase")
 
         bfm.add_signal("data", data_signal)
         bfm.add_signal("valid", valid_signal)
@@ -678,8 +678,8 @@ class TestBusFunctionalModel:
         bfm = BusFunctionalModel("test_bus")
 
         # Add and configure signals
-        signal1 = MockSignal("sig1", "LogicObject")
-        signal2 = MockSignal("sig2", "LogicObject")
+        signal1 = MockSignal("sig1", "SimHandleBase")
+        signal2 = MockSignal("sig2", "SimHandleBase")
 
         bfm.add_signal("sig1", signal1)
         bfm.add_signal("sig2", signal2)
@@ -767,7 +767,7 @@ class TestMockingIntegration:
 
     def test_signal_history_with_callbacks(self):
         """Test that signal history works with callbacks."""
-        signal = MockSignal("test_signal", "LogicObject")
+        signal = MockSignal("test_signal", "SimHandleBase")
 
         callback_history = []
 
@@ -795,8 +795,8 @@ class TestMockingIntegration:
         bfm = BusFunctionalModel("test_bus")
 
         # Create signals with history tracking
-        data_signal = MockSignal("data", "LogicObject", width=8)
-        valid_signal = MockSignal("valid", "LogicObject")
+        data_signal = MockSignal("data", "SimHandleBase", width=8)
+        valid_signal = MockSignal("valid", "SimHandleBase")
 
         bfm.add_signal("data", data_signal)
         bfm.add_signal("valid", valid_signal)

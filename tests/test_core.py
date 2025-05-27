@@ -11,11 +11,11 @@ from cocotb.handle import (
     HierarchyArrayObject,
     HierarchyObject,
     IntegerObject,
-    LogicArrayObject,
-    LogicObject,
+    LogicArray,
+    SimHandleBase,
     RealObject,
     StringObject,
-    ValueObjectBase,
+    SimHandleBase,
 )
 
 # Print cocotb version for debugging
@@ -72,13 +72,13 @@ class MockArrayHandle(MockHandle):
         self._size = size
         # Set up _sub_handles as a dict to avoid iteration issues
         self._sub_handles = {
-            f"{name}[{i}]": MockHandle(f"{name}[{i}]", LogicObject) for i in range(size)
+            f"{name}[{i}]": MockHandle(f"{name}[{i}]", SimHandleBase) for i in range(size)
         }
 
     def __iter__(self) -> Any:
         """Make the handle iterable."""
         for i in range(self._size):
-            yield MockHandle(f"{self._name}[{i}]", LogicObject)
+            yield MockHandle(f"{self._name}[{i}]", SimHandleBase)
 
     def __len__(self) -> int:
         """Return the size of the array."""
@@ -115,16 +115,16 @@ def mock_dut() -> MockHandle:
         "dut",
         HierarchyObject,
         {
-            "clk": MockHandle("clk", LogicObject),
-            "rst_n": MockHandle("rst_n", LogicObject),
-            "data_in": MockHandle("data_in", LogicObject),
-            "data_out": MockHandle("data_out", LogicObject),
+            "clk": MockHandle("clk", SimHandleBase),
+            "rst_n": MockHandle("rst_n", SimHandleBase),
+            "data_in": MockHandle("data_in", SimHandleBase),
+            "data_out": MockHandle("data_out", SimHandleBase),
             "submodule": MockHandle(
                 "submodule",
                 HierarchyObject,
                 {
-                    "reg_a": MockHandle("reg_a", LogicObject),
-                    "reg_b": MockHandle("reg_b", LogicObject),
+                    "reg_a": MockHandle("reg_a", SimHandleBase),
+                    "reg_b": MockHandle("reg_b", SimHandleBase),
                 },
             ),
         },
@@ -138,10 +138,10 @@ def complex_mock_dut() -> MockHandle:
         "complex_dut",
         HierarchyObject,
         {
-            "logic_signal": MockHandle("logic_signal", LogicObject),
-            "logic_array": MockHandle("logic_array", LogicArrayObject),
+            "logic_signal": MockHandle("logic_signal", SimHandleBase),
+            "logic_array": MockHandle("logic_array", LogicArray),
             "hierarchy_array": MockArrayHandle("hierarchy_array", HierarchyArrayObject),
-            "value_base": MockHandle("value_base", ValueObjectBase),
+            "value_base": MockHandle("value_base", SimHandleBase),
             "real_signal": MockHandle("real_signal", RealObject),
             "enum_signal": MockHandle("enum_signal", EnumObject),
             "integer_signal": MockHandle("integer_signal", IntegerObject),
@@ -150,7 +150,7 @@ def complex_mock_dut() -> MockHandle:
                 "nested",
                 HierarchyObject,
                 {
-                    "deep_signal": MockHandle("deep_signal", LogicObject),
+                    "deep_signal": MockHandle("deep_signal", SimHandleBase),
                     "array_in_nested": MockArrayHandle("array_in_nested", HierarchyArrayObject),
                 },
             ),
@@ -181,26 +181,26 @@ class TestDiscoverHierarchy:
 
         # Check some type mappings
         assert hierarchy["dut"] is HierarchyObject
-        assert hierarchy["dut.clk"] is LogicObject
+        assert hierarchy["dut.clk"] is SimHandleBase
         assert hierarchy["dut.submodule"] is HierarchyObject
-        assert hierarchy["dut.submodule.reg_a"] is LogicObject
+        assert hierarchy["dut.submodule.reg_a"] is SimHandleBase
 
     def test_discover_hierarchy_complex(self, complex_mock_dut: MockHandle) -> None:
         """Test discovery of complex hierarchy with various types."""
         hierarchy = discover_hierarchy(complex_mock_dut)
 
         # Check that all handle types are discovered
-        assert hierarchy["complex_dut.logic_signal"] is LogicObject
-        assert hierarchy["complex_dut.logic_array"] is LogicArrayObject
+        assert hierarchy["complex_dut.logic_signal"] is SimHandleBase
+        assert hierarchy["complex_dut.logic_array"] is LogicArray
         assert hierarchy["complex_dut.hierarchy_array"] is HierarchyArrayObject
-        assert hierarchy["complex_dut.value_base"] is ValueObjectBase
+        assert hierarchy["complex_dut.value_base"] is SimHandleBase
         assert hierarchy["complex_dut.real_signal"] is RealObject
         assert hierarchy["complex_dut.enum_signal"] is EnumObject
         assert hierarchy["complex_dut.integer_signal"] is IntegerObject
         assert hierarchy["complex_dut.string_signal"] is StringObject
 
         # Check nested hierarchy
-        assert hierarchy["complex_dut.nested.deep_signal"] is LogicObject
+        assert hierarchy["complex_dut.nested.deep_signal"] is SimHandleBase
 
     def test_discover_hierarchy_with_arrays(self, complex_mock_dut: MockHandle) -> None:
         """Test discovery of hierarchy with array handles."""
@@ -216,11 +216,11 @@ class TestDiscoverHierarchy:
 
         for path in expected_array_paths:
             assert path in hierarchy
-            assert hierarchy[path] is LogicObject
+            assert hierarchy[path] is SimHandleBase
 
     def test_discover_hierarchy_no_name_attribute(self) -> None:
         """Test discovery with handle that has no _name attribute."""
-        mock_handle = MockRealHandle(LogicObject)
+        mock_handle = MockRealHandle(SimHandleBase)
         hierarchy = discover_hierarchy(mock_handle)
 
         # Should return empty hierarchy since handle has no _name
@@ -380,16 +380,16 @@ class TestGenerateStub:
 
         # Basic checks on the generated content
         assert "class Dut(HierarchyObject):" in stub_content
-        assert "clk: LogicObject" in stub_content
-        assert "data_in: LogicObject" in stub_content
+        assert "clk: SimHandleBase" in stub_content
+        assert "data_in: SimHandleBase" in stub_content
         assert "class Submodule(HierarchyObject):" in stub_content
-        assert "reg_a: LogicObject" in stub_content
-        assert "reg_b: LogicObject" in stub_content
+        assert "reg_a: SimHandleBase" in stub_content
+        assert "reg_b: SimHandleBase" in stub_content
 
         # Check that imports are present
         assert "from cocotb.handle import" in stub_content
         assert "HierarchyObject" in stub_content
-        assert "LogicObject" in stub_content
+        assert "SimHandleBase" in stub_content
 
         # Check that the main DUT type alias is present
         assert "DutType = Dut" in stub_content
@@ -402,10 +402,10 @@ class TestGenerateStub:
         # Check that all handle types are included in imports
         expected_imports = [
             "HierarchyObject",
-            "LogicObject",
-            "LogicArrayObject",
+            "SimHandleBase",
+            "LogicArray",
             "HierarchyArrayObject",
-            "ValueObjectBase",
+            "SimHandleBase",
             "RealObject",
             "EnumObject",
             "IntegerObject",
@@ -418,7 +418,7 @@ class TestGenerateStub:
         # Check that the generated stub has proper class structure
         assert "class ComplexDut(HierarchyObject):" in stub_content
         assert "enum_signal: EnumObject" in stub_content
-        assert "logic_array: LogicArrayObject" in stub_content
+        assert "logic_array: LogicArray" in stub_content
 
     def test_generate_stub_empty_hierarchy(self) -> None:
         """Test generation of stub with empty hierarchy."""
@@ -456,8 +456,8 @@ class TestGenerateStubToFile:
         # Check that content was written
         assert len(content) > 0
         assert "class Dut(HierarchyObject):" in content
-        assert "clk: LogicObject" in content
-        assert "data_in: LogicObject" in content
+        assert "clk: SimHandleBase" in content
+        assert "data_in: SimHandleBase" in content
         assert "submodule: Submodule" in content  # Should reference the Submodule class
 
     def test_generate_stub_to_file_with_typing_imports(self) -> None:
@@ -475,8 +475,8 @@ class TestGenerateStubToFile:
         """Test generation with array indices in paths."""
         hierarchy = {
             "dut": HierarchyObject,
-            "dut.array[0]": LogicObject,
-            "dut.array[1]": LogicObject,
+            "dut.array[0]": SimHandleBase,
+            "dut.array[1]": SimHandleBase,
         }
 
         output_file = io.StringIO()
@@ -577,7 +577,7 @@ class TestMain:
                             'max_depth': 3,
                             'module_count': 2,
                             'array_count': 1,
-                            'signal_types': {'LogicObject': 5, 'LogicArrayObject': 5}
+                            'signal_types': {'SimHandleBase': 5, 'LogicArray': 5}
                         }
                         with patch('builtins.open', create=True):
                             result = main(['test_module', '--stats'])
@@ -638,16 +638,16 @@ class TestEdgeCases:
         """Test stub generation with array indices in signal names."""
         hierarchy = {
             "dut": HierarchyObject,
-            "dut.signal[0]": LogicObject,
-            "dut.signal[1]": LogicObject,
-            "dut.other_signal": LogicObject,
+            "dut.signal[0]": SimHandleBase,
+            "dut.signal[1]": SimHandleBase,
+            "dut.other_signal": SimHandleBase,
         }
 
         stub_content = generate_stub(hierarchy)
 
         # Array indices should be handled properly
-        assert "signal: LogicObject" in stub_content
-        assert "other_signal: LogicObject" in stub_content
+        assert "signal: SimHandleBase" in stub_content
+        assert "other_signal: SimHandleBase" in stub_content
 
     def test_version_printing_on_import(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test that version information is printed on module import."""
@@ -704,7 +704,7 @@ class TestEdgeCases:
 
         # Mock the type objects to have proper names
         for path, obj_type in hierarchy.items():
-            obj_type.__name__ = "LogicObject"
+            obj_type.__name__ = "SimHandleBase"
 
         output = StringIO()
         generate_stub_to_file(hierarchy, output)
@@ -817,7 +817,7 @@ class TestEnhancedDiscoverHierarchy:
     def test_discover_hierarchy_with_array_detection_disabled(self, mock_dut: MockHandle) -> None:
         """Test hierarchy discovery with array detection disabled."""
         # Add an array-like child to the mock
-        array_child = MockHandle("array[0]", LogicObject)
+        array_child = MockHandle("array[0]", SimHandleBase)
         mock_dut._sub_handles["array[0]"] = array_child
         
         hierarchy = discover_hierarchy(
@@ -833,8 +833,8 @@ class TestEnhancedDiscoverHierarchy:
     def test_discover_hierarchy_with_array_detection_enabled(self, mock_dut: MockHandle) -> None:
         """Test hierarchy discovery with array detection enabled."""
         # Add array-like children to the mock
-        array_child_0 = MockHandle("array[0]", LogicObject)
-        array_child_1 = MockHandle("array[1]", LogicObject)
+        array_child_0 = MockHandle("array[0]", SimHandleBase)
+        array_child_1 = MockHandle("array[1]", SimHandleBase)
         mock_dut._sub_handles["array[0]"] = array_child_0
         mock_dut._sub_handles["array[1]"] = array_child_1
         
@@ -864,7 +864,7 @@ class TestEnhancedDiscoverHierarchy:
     def test_discover_hierarchy_with_constants_included(self, mock_dut: MockHandle) -> None:
         """Test hierarchy discovery with constants included."""
         # Add a constant-like child
-        const_child = MockHandle("CONSTANT_VALUE", LogicObject)
+        const_child = MockHandle("CONSTANT_VALUE", SimHandleBase)
         const_child._type = "const_signal"
         mock_dut._sub_handles["CONSTANT_VALUE"] = const_child
         
@@ -879,7 +879,7 @@ class TestEnhancedDiscoverHierarchy:
     def test_discover_hierarchy_with_constants_excluded(self, mock_dut: MockHandle) -> None:
         """Test hierarchy discovery with constants excluded."""
         # Add a constant-like child
-        const_child = MockHandle("CONSTANT_VALUE", LogicObject)
+        const_child = MockHandle("CONSTANT_VALUE", SimHandleBase)
         const_child._type = "const_signal"
         mock_dut._sub_handles["CONSTANT_VALUE"] = const_child
         
@@ -898,7 +898,7 @@ class TestEnhancedDiscoverHierarchy:
     def test_discover_hierarchy_error_handling(self, mock_dut: MockHandle) -> None:
         """Test hierarchy discovery error handling."""
         # Create a child that will cause an error during discovery
-        error_child = MockHandle("error_child", LogicObject)
+        error_child = MockHandle("error_child", SimHandleBase)
         error_child._discover_all = Mock(side_effect=Exception("Discovery error"))
         mock_dut._sub_handles["error_child"] = error_child
         
@@ -916,8 +916,8 @@ class TestEnhancedDiscoverHierarchy:
         
         # Mock the iteration - but the current implementation doesn't handle this case
         # because MockHandle doesn't implement the iteration protocol properly
-        sub_item_0 = MockHandle("item[0]", LogicObject)
-        sub_item_1 = MockHandle("item[1]", LogicObject)
+        sub_item_0 = MockHandle("item[0]", SimHandleBase)
+        sub_item_1 = MockHandle("item[1]", SimHandleBase)
         iterable_child.__iter__ = Mock(return_value=iter([sub_item_0, sub_item_1]))
         
         mock_dut._sub_handles["iterable"] = iterable_child
@@ -981,10 +981,10 @@ class TestArrayDetectionHelpers:
         
         # Test with mock handle
         mock_obj = Mock()
-        mock_obj._handle_type = LogicObject
+        mock_obj._handle_type = SimHandleBase
         
         result = _get_array_base_type(mock_obj)
-        assert result == LogicObject
+        assert result == SimHandleBase
         
         # Test with regular object
         regular_obj = "test"
@@ -1091,7 +1091,7 @@ class TestEnhancedCLI:
                             'max_depth': 3,
                             'module_count': 2,
                             'array_count': 1,
-                            'signal_types': {'LogicObject': 5, 'LogicArrayObject': 5}
+                            'signal_types': {'SimHandleBase': 5, 'LogicArray': 5}
                         }
                         with patch('builtins.open', create=True):
                             result = main(['test_module', '--stats'])
@@ -1179,7 +1179,7 @@ class TestPerformanceOptimizations:
         from copra.core import _discover_hierarchy_iterative
         
         # Add a child that will cause an error
-        error_child = MockHandle("error_child", LogicObject)
+        error_child = MockHandle("error_child", SimHandleBase)
         error_child._discover_all = Mock(side_effect=Exception("Discovery error"))
         mock_dut._sub_handles["error_child"] = error_child
         

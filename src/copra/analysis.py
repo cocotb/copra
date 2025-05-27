@@ -14,7 +14,15 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
-from cocotb.handle import HierarchyObject
+# Conditional import for cocotb
+try:
+    from cocotb.handle import HierarchyObject
+    COCOTB_AVAILABLE = True
+except ImportError:
+    # Create a dummy class for type hints when cocotb is not available
+    class HierarchyObject:
+        pass
+    COCOTB_AVAILABLE = False
 
 from .core import discover_hierarchy
 
@@ -924,3 +932,76 @@ def validate_hierarchy_structure(hierarchy: Dict[str, type], max_depth: int = 20
         validation['issues'].append(f"Found {len(validation['orphaned_signals'])} orphaned signals")
 
     return validation
+
+
+def analyze_hierarchy(hierarchy: Dict[str, type]) -> Dict[str, Any]:
+    """Analyze a hierarchy dictionary to extract useful information.
+
+    This function analyzes a hierarchy dictionary (as returned by discover_hierarchy)
+    to extract useful information about the design structure, signal types, arrays,
+    and other patterns.
+
+    Args:
+        hierarchy: Dictionary mapping paths to types.
+
+    Returns:
+        Dictionary containing analysis results including:
+        - total_objects: Total number of objects in hierarchy
+        - max_depth: Maximum depth of hierarchy
+        - signal_types: Dictionary mapping signal types to counts
+        - arrays: Dictionary of array information
+        - patterns: Dictionary of detected design patterns
+        - naming_conventions: Dictionary of naming convention analysis
+        - structure: Dictionary of hierarchy structure analysis
+        - unused_signals: List of potentially unused signals
+    """
+    # Get basic statistics
+    total_objects = len(hierarchy)
+    max_depth = max(path.count('.') for path in hierarchy.keys()) if hierarchy else 0
+
+    # Analyze signal types
+    signal_types = {}
+    for path, obj_type in hierarchy.items():
+        type_name = obj_type.__name__
+        signal_types[type_name] = signal_types.get(type_name, 0) + 1
+
+    # Find arrays and their patterns
+    arrays = {}
+    for path, obj_type in hierarchy.items():
+        array_match = re.match(r'^(.+)\[(\d+)\]$', path)
+        if array_match:
+            base_path = array_match.group(1)
+            index = int(array_match.group(2))
+            if base_path not in arrays:
+                arrays[base_path] = {
+                    'indices': set(),
+                    'element_type': obj_type,
+                    'max_index': index,
+                    'min_index': index
+                }
+            arrays[base_path]['indices'].add(index)
+            arrays[base_path]['max_index'] = max(arrays[base_path]['max_index'], index)
+            arrays[base_path]['min_index'] = min(arrays[base_path]['min_index'], index)
+
+    # Detect design patterns
+    patterns = detect_design_patterns(hierarchy)
+
+    # Analyze naming conventions
+    naming_conventions = validate_naming_conventions(hierarchy)
+
+    # Analyze hierarchy structure
+    structure = validate_hierarchy_structure(hierarchy)
+
+    # Find potentially unused signals
+    unused = find_unused_signals(hierarchy)
+
+    return {
+        'total_objects': total_objects,
+        'max_depth': max_depth,
+        'signal_types': signal_types,
+        'arrays': arrays,
+        'patterns': patterns,
+        'naming_conventions': naming_conventions,
+        'structure': structure,
+        'unused_signals': unused,
+    }

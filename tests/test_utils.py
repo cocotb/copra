@@ -22,11 +22,11 @@ class TestGetPythonTypeForHandle:
         """Test mapping of known handle types."""
         # Create mock types with known names
         mock_types = {
-            "LogicObject": Mock(__name__="LogicObject"),
-            "LogicArrayObject": Mock(__name__="LogicArrayObject"),
+            "SimHandleBase": Mock(__name__="SimHandleBase"),
+            "LogicArray": Mock(__name__="LogicArray"),
             "HierarchyObject": Mock(__name__="HierarchyObject"),
             "HierarchyArrayObject": Mock(__name__="HierarchyArrayObject"),
-            "ValueObjectBase": Mock(__name__="ValueObjectBase"),
+            "SimHandleBase": Mock(__name__="SimHandleBase"),
             "RealObject": Mock(__name__="RealObject"),
             "EnumObject": Mock(__name__="EnumObject"),
             "IntegerObject": Mock(__name__="IntegerObject"),
@@ -38,23 +38,22 @@ class TestGetPythonTypeForHandle:
             result = get_python_type_for_handle(mock_type)
             assert result == expected_name
 
-        # Test types that fall back to ValueObjectBase
+        # Test types that fall back to SimHandleBase
         fallback_types = {
-            "LogicArray": Mock(__name__="LogicArray"),
             "Logic": Mock(__name__="Logic"),
             "Range": Mock(__name__="Range"),
         }
 
         for type_name, mock_type in fallback_types.items():
             result = get_python_type_for_handle(mock_type)
-            assert result == "ValueObjectBase", \
-                    f"Expected {type_name} to fall back to ValueObjectBase"
+            assert result == "SimHandleBase", \
+                    f"Expected {type_name} to fall back to SimHandleBase"
 
     def test_unknown_type(self) -> None:
         """Test mapping of unknown handle types."""
         unknown_type = Mock(__name__="UnknownType")
         result = get_python_type_for_handle(unknown_type)
-        assert result == "ValueObjectBase"
+        assert result == "SimHandleBase"
 
 
 class TestGetImportsForTypes:
@@ -73,9 +72,8 @@ class TestGetImportsForTypes:
             "from cocotb.handle import (",
             "    HierarchyObject,",
             "    HierarchyArrayObject,",
-            "    LogicObject,",
-            "    LogicArrayObject,",
-            "    ValueObjectBase,",
+            "    SimHandleBase,",
+            "    LogicArray,",
             "    RealObject,",
             "    EnumObject,",
             "    IntegerObject,",

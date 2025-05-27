@@ -31,19 +31,24 @@ def get_python_type_for_handle(handle_type: Type[Any]) -> str:
     type_name = handle_type.__name__
 
     type_map = {
-        "LogicObject": "LogicObject",
-        "LogicArrayObject": "LogicArrayObject",
+        "SimHandleBase": "SimHandleBase",
+        "LogicArray": "LogicArray",
         "HierarchyObject": "HierarchyObject",
         "HierarchyArrayObject": "HierarchyArrayObject",
-        "ValueObjectBase": "ValueObjectBase",
         "RealObject": "RealObject",
         "EnumObject": "EnumObject",
         "IntegerObject": "IntegerObject",
         "StringObject": "StringObject",
         "ArrayObject": "ArrayObject",
+        # These types fall back to SimHandleBase
+        "LogicObject": "SimHandleBase",
+        "LogicArrayObject": "SimHandleBase",
+        "ValueObjectBase": "SimHandleBase",
+        "Logic": "SimHandleBase",
+        "Range": "SimHandleBase",
     }
 
-    return type_map.get(type_name, "ValueObjectBase")
+    return type_map.get(type_name, "SimHandleBase")
 
 
 def get_imports_for_types(types: Set[Type[Any]]) -> List[str]:
@@ -63,9 +68,8 @@ def get_imports_for_types(types: Set[Type[Any]]) -> List[str]:
         "from cocotb.handle import (",
         "    HierarchyObject,",
         "    HierarchyArrayObject,",
-        "    LogicObject,",
-        "    LogicArrayObject,",
-        "    ValueObjectBase,",
+        "    SimHandleBase,",
+        "    LogicArray,",
         "    RealObject,",
         "    EnumObject,",
         "    IntegerObject,",

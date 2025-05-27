@@ -38,6 +38,7 @@ from .analysis import (
     analyze_stub_coverage,
     validate_dut_interface,
     validate_stub_syntax,
+    analyze_hierarchy,
 )
 from .core import (
     auto_generate_stubs,
@@ -49,6 +50,8 @@ from .core import (
 )
 from .generation import (
     generate_testbench_template,
+    StubGenerator,
+    StubGenerationOptions,
 )
 from .integration import (
     CocotbIntegration,
@@ -60,9 +63,27 @@ from .integration import (
 )
 from .mocking import (
     MockDUT,
-    MockModule,
     MockSignal,
+    MockModule,
+    create_mock_dut,
 )
+from .simulation import (
+    DUTDiscoverySimulation,
+    SimulationError,
+    SimulatorDetector,
+    run_discovery_simulation,
+)
+from .metadata import (
+    SignalMetadata,
+    ArrayMetadata,
+    SignalDirection,
+    SignalType,
+    BusProtocol,
+    SignalMetadataExtractor,
+    extract_comprehensive_metadata,
+    extract_enhanced_array_metadata,
+)
+from .cli import main as cli_main
 
 
 def _check_cocotb_version() -> None:
@@ -111,12 +132,16 @@ __all__ = [
     "analyze_stub_coverage",
     "validate_dut_interface",
     "validate_stub_syntax",
+    "analyze_hierarchy",
     # Code generation
     "generate_testbench_template",
+    "StubGenerator",
+    "StubGenerationOptions",
     # Mocking and testing
     "MockDUT",
     "MockSignal",
     "MockModule",
+    "create_mock_dut",
     # Integration
     "CocotbIntegration",
     "RunnerIntegration",
@@ -124,4 +149,20 @@ __all__ = [
     "setup_automatic_stub_generation",
     "integrate_with_makefile",
     "create_copra_config",
+    # Simulation integration
+    "DUTDiscoverySimulation",
+    "SimulationError",
+    "SimulatorDetector",
+    "run_discovery_simulation",
+    # Metadata extraction
+    "SignalMetadata",
+    "ArrayMetadata",
+    "SignalDirection",
+    "SignalType",
+    "BusProtocol",
+    "SignalMetadataExtractor",
+    "extract_comprehensive_metadata",
+    "extract_enhanced_array_metadata",
+    # CLI
+    "cli_main",
 ]

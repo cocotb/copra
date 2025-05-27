@@ -522,6 +522,21 @@ def create_mock_dut_from_hierarchy(hierarchy: Dict[str, type], name: str = "mock
     return mock_dut
 
 
+def create_mock_dut(hierarchy: Dict[str, type], name: str = "mock_dut") -> MockDUT:
+    """Create a mock DUT from a hierarchy dictionary.
+
+    This is an alias for create_mock_dut_from_hierarchy for backward compatibility.
+
+    Args:
+        hierarchy: Dictionary mapping paths to types.
+        name: Name for the mock DUT.
+
+    Returns:
+        Mock DUT instance.
+    """
+    return create_mock_dut_from_hierarchy(hierarchy, name)
+
+
 class SignalValueHistory:
     """Track signal value changes over time for analysis and debugging."""
 

@@ -6,7 +6,7 @@ from typing import Any, Dict
 from unittest.mock import Mock, mock_open, patch
 
 import pytest
-from cocotb.handle import HierarchyObject, LogicObject
+from cocotb.handle import HierarchyObject, SimHandleBase
 from copra.generation import (
     DocumentationGenerator,
     StubTemplate,
@@ -32,21 +32,21 @@ def mock_cpu_dut():
         "riscv_cpu",
         HierarchyObject,
         {
-            "clk": MockHandle("clk", LogicObject),
-            "rst_n": MockHandle("rst_n", LogicObject),
-            "instr_addr": MockHandle("instr_addr", LogicObject),
-            "instr_data": MockHandle("instr_data", LogicObject),
-            "data_addr": MockHandle("data_addr", LogicObject),
-            "data_wdata": MockHandle("data_wdata", LogicObject),
-            "data_rdata": MockHandle("data_rdata", LogicObject),
-            "interrupt": MockHandle("interrupt", LogicObject),
-            "halt": MockHandle("halt", LogicObject),
+            "clk": MockHandle("clk", SimHandleBase),
+            "rst_n": MockHandle("rst_n", SimHandleBase),
+            "instr_addr": MockHandle("instr_addr", SimHandleBase),
+            "instr_data": MockHandle("instr_data", SimHandleBase),
+            "data_addr": MockHandle("data_addr", SimHandleBase),
+            "data_wdata": MockHandle("data_wdata", SimHandleBase),
+            "data_rdata": MockHandle("data_rdata", SimHandleBase),
+            "interrupt": MockHandle("interrupt", SimHandleBase),
+            "halt": MockHandle("halt", SimHandleBase),
             "debug": MockHandle(
                 "debug",
                 HierarchyObject,
                 {
-                    "enable": MockHandle("enable", LogicObject),
-                    "step": MockHandle("step", LogicObject),
+                    "enable": MockHandle("enable", SimHandleBase),
+                    "step": MockHandle("step", SimHandleBase),
                 },
             ),
         },
@@ -60,10 +60,10 @@ def simple_mock_dut():
         "simple_dut",
         HierarchyObject,
         {
-            "clock": MockHandle("clock", LogicObject),
-            "reset": MockHandle("reset", LogicObject),
-            "input_signal": MockHandle("input_signal", LogicObject),
-            "output_signal": MockHandle("output_signal", LogicObject),
+            "clock": MockHandle("clock", SimHandleBase),
+            "reset": MockHandle("reset", SimHandleBase),
+            "input_signal": MockHandle("input_signal", SimHandleBase),
+            "output_signal": MockHandle("output_signal", SimHandleBase),
         },
     )
 
@@ -103,13 +103,13 @@ class TestStubTemplate:
         class_def = template.render_class(
             class_name='TestClass',
             docstring='    """Test class docstring."""',
-            attributes='    signal1: LogicObject\n    signal2: LogicObject'
+            attributes='    signal1: SimHandleBase\n    signal2: SimHandleBase'
         )
 
         assert 'class TestClass(HierarchyObject):' in class_def
         assert 'Test class docstring' in class_def
-        assert 'signal1: LogicObject' in class_def
-        assert 'signal2: LogicObject' in class_def
+        assert 'signal1: SimHandleBase' in class_def
+        assert 'signal2: SimHandleBase' in class_def
 
     def test_signal_template_rendering(self):
         """Test signal template rendering."""
@@ -117,11 +117,11 @@ class TestStubTemplate:
 
         signal_def = template.render_signal(
             name='test_signal',
-            type_annotation='LogicObject',
+            type_annotation='SimHandleBase',
             comment='Test signal comment'
         )
 
-        assert 'test_signal: LogicObject' in signal_def
+        assert 'test_signal: SimHandleBase' in signal_def
         assert 'Test signal comment' in signal_def
 
     def test_array_template_rendering(self):
@@ -130,14 +130,14 @@ class TestStubTemplate:
 
         array_def = template.render_array(
             class_name='TestArray',
-            element_type='LogicObject',
+            element_type='SimHandleBase',
             base_name='test_array',
             size=4,
             min_index=0,
             max_index=3
         )
 
-        assert 'class TestArray(Sequence[LogicObject]):' in array_def
+        assert 'class TestArray(Sequence[SimHandleBase]):' in array_def
         assert 'test_array with 4 elements' in array_def
         assert '[0:3]' in array_def
         assert '__getitem__' in array_def
@@ -196,7 +196,7 @@ class TestDocumentationGenerator:
 
         # Mock the type objects
         for obj_type in hierarchy.values():
-            obj_type.__name__ = "LogicObject"
+            obj_type.__name__ = "SimHandleBase"
 
         docs = generator.generate_interface_documentation(hierarchy)
 
@@ -206,7 +206,7 @@ class TestDocumentationGenerator:
         assert "### Top-Level Signals" in docs
         assert "### Module:" in docs
         assert "| Signal Name | Type | Description |" in docs
-        assert "LogicObject" in docs
+        assert "SimHandleBase" in docs
 
     def test_rst_documentation_generation(self):
         """Test RST documentation generation."""
@@ -220,7 +220,7 @@ class TestDocumentationGenerator:
 
         # Mock the type objects
         for obj_type in hierarchy.values():
-            obj_type.__name__ = "LogicObject"
+            obj_type.__name__ = "SimHandleBase"
 
         docs = generator.generate_interface_documentation(hierarchy)
 
@@ -229,7 +229,7 @@ class TestDocumentationGenerator:
         assert "Overview" in docs
         assert "--------" in docs
         assert "``dut``" in docs
-        assert "Type: LogicObject" in docs
+        assert "Type: SimHandleBase" in docs
 
     def test_html_documentation_generation(self):
         """Test HTML documentation generation."""
@@ -243,7 +243,7 @@ class TestDocumentationGenerator:
 
         # Mock the type objects
         for obj_type in hierarchy.values():
-            obj_type.__name__ = "LogicObject"
+            obj_type.__name__ = "SimHandleBase"
 
         docs = generator.generate_interface_documentation(hierarchy)
 
@@ -255,7 +255,7 @@ class TestDocumentationGenerator:
         assert "<th>Path</th>" in docs
         assert "<th>Type</th>" in docs
         assert "<th>Category</th>" in docs
-        assert "LogicObject" in docs
+        assert "SimHandleBase" in docs
         assert "</html>" in docs
 
     def test_documentation_with_file_output(self):
@@ -269,7 +269,7 @@ class TestDocumentationGenerator:
 
         # Mock the type objects
         for obj_type in hierarchy.values():
-            obj_type.__name__ = "LogicObject"
+            obj_type.__name__ = "SimHandleBase"
 
         with patch('builtins.open', mock_open()) as mock_file:
             docs = generator.generate_interface_documentation(hierarchy, "test_docs.md")
@@ -439,8 +439,8 @@ class TestGenerateTestbenchTemplate:
             "no_clk_dut",
             HierarchyObject,
             {
-                "data_in": MockHandle("data_in", LogicObject),
-                "data_out": MockHandle("data_out", LogicObject),
+                "data_in": MockHandle("data_in", SimHandleBase),
+                "data_out": MockHandle("data_out", SimHandleBase),
             },
         )
 
@@ -532,7 +532,7 @@ class TestGenerateInterfaceDocumentation:
         documentation = generate_interface_documentation(mock_cpu_dut, "test.md")
 
         # Should contain signal type information
-        assert "LogicObject" in documentation
+        assert "SimHandleBase" in documentation
         assert "HierarchyObject" in documentation
 
     def test_generate_interface_documentation_signal_details(self, mock_cpu_dut):
@@ -609,7 +609,7 @@ class TestGenerationIntegration:
 
         # Mock the type objects
         for obj_type in hierarchy.values():
-            obj_type.__name__ = "LogicObject"
+            obj_type.__name__ = "SimHandleBase"
 
         # Generate documentation
         doc_generator = DocumentationGenerator("markdown")
@@ -641,7 +641,7 @@ class TestGenerationIntegration:
 
         # Mock the type objects
         for obj_type in hierarchy.values():
-            obj_type.__name__ = "LogicObject"
+            obj_type.__name__ = "SimHandleBase"
 
         # Generate in all formats
         markdown_gen = DocumentationGenerator("markdown")

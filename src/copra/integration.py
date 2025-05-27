@@ -21,7 +21,9 @@ try:
     COCOTB_AVAILABLE = True
 except ImportError:
     COCOTB_AVAILABLE = False
-    HierarchyObject = Any
+    
+    class HierarchyObject:
+        pass
 
 
 class CocotbIntegration:
@@ -78,6 +80,100 @@ class CocotbIntegration:
         except Exception as e:
             print(f"[copra] Warning: Failed to generate stubs for test {test_name}: {e}")
             return None
+
+    def generate_makefile_integration(self, makefile_path: str = "Makefile", 
+                                     top_module: str = None, sources: List[str] = None, 
+                                     simulator: str = None) -> str:
+        """Generate Makefile integration for automatic stub generation.
+
+        Args:
+        ----
+            makefile_path: Path to the Makefile to modify.
+            top_module: Top-level module name.
+            sources: List of source files.
+            simulator: Simulator to use.
+
+        Returns:
+        -------
+            Generated makefile content.
+
+        """
+        try:
+            makefile = Path(makefile_path)
+            
+            # Generate makefile content
+            integration_content = f"""
+# Copra stub generation integration
+.PHONY: copra-stubs
+copra-stubs:
+\t@echo "Generating copra stubs..."
+"""
+            
+            if sources and top_module:
+                sources_str = " ".join(sources)
+                integration_content += f"\t@python -m copra --sources {sources_str} --top {top_module}"
+                if simulator:
+                    integration_content += f" --simulator {simulator}"
+                integration_content += "\n"
+            else:
+                integration_content += "\t@python -m copra --auto-generate\n"
+
+            integration_content += """
+# Add copra-stubs as dependency to test targets
+test: copra-stubs
+"""
+            
+            if makefile.exists():
+                with open(makefile, 'a') as f:
+                    f.write(integration_content)
+                print(f"[copra] Added Makefile integration to {makefile_path}")
+            
+            return integration_content
+            
+        except Exception as e:
+            print(f"[copra] Warning: Failed to generate Makefile integration: {e}")
+            return ""
+
+    def generate_test_integration(self, top_module: str, stub_file: str) -> str:
+        """Generate test integration content.
+
+        Args:
+        ----
+            top_module: Top-level module name.
+            stub_file: Path to the stub file.
+
+        Returns:
+        -------
+            Generated test integration content.
+
+        """
+        test_content = f'''"""Auto-generated test integration for {top_module}."""
+
+import cocotb
+from cocotb.triggers import Timer
+from typing import cast
+
+# Import the generated DUT type
+from {stub_file.replace('.pyi', '').replace('.py', '')} import DutType
+
+
+@cocotb.test()
+async def test_{top_module}(dut):
+    """Test the {top_module} functionality.
+
+    Args:
+    ----
+        dut: The DUT instance from cocotb.
+    """
+    # Cast to typed DUT for IDE support
+    typed_dut = cast(DutType, dut)
+
+    # Add your test logic here
+    await Timer(10, units='ns')
+
+    dut._log.info("Test completed successfully")
+'''
+        return test_content
 
 
 def setup_automatic_stub_generation(
