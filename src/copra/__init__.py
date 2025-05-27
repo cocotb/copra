@@ -2,16 +2,58 @@
 # Licensed under the Revised BSD License, see LICENSE for details.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Copra - Python type stubs generator for cocotb testbenches."""
+"""Copra - Python type stubs generator for cocotb testbenches.
+
+Copra automatically generates Python type stubs (.pyi files) for cocotb Device Under Test (DUT) 
+objects, enabling IDE autocompletion and static type checking for hardware verification testbenches.
+
+Key Features:
+- Automatic DUT hierarchy discovery and stub generation
+- Support for arrays, sub-modules, and complex hierarchies  
+- IDE integration with autocompletion and type checking
+- Mock DUT creation for unit testing
+- Testbench template generation
+- Interface validation and coverage analysis
+
+Example Usage:
+    # Generate stubs from within a cocotb test
+    @cocotb.test()
+    async def test_generate_stubs(dut):
+        from copra import create_stub_from_dut
+        create_stub_from_dut(dut, "my_dut.pyi")
+    
+    # Command line usage
+    $ copra my_testbench_module --outfile stubs/dut.pyi
+    
+    # Automatic stub generation decorator
+    @cocotb.test()
+    @copra.auto_generate_stubs("dut.pyi")
+    async def test_my_module(dut):
+        # Test code with full type support
+        pass
+"""
 
 from ._version import __version__
-from .stubgen import (
+from .core import (
     create_stub_from_dut,
     discover_hierarchy,
     generate_stub,
     generate_stub_to_file,
     generate_stub_with_validation,
+    auto_generate_stubs,
+)
+from .analysis import (
+    analyze_stub_coverage,
+    validate_dut_interface,
     validate_stub_syntax,
+)
+from .generation import (
+    generate_testbench_template,
+)
+from .mocking import (
+    MockDUT,
+    MockSignal,
+    MockModule,
 )
 
 
@@ -50,10 +92,21 @@ _check_cocotb_version()
 
 __all__ = [
     "__version__",
+    # Core stub generation
     "create_stub_from_dut",
-    "discover_hierarchy",
+    "discover_hierarchy", 
     "generate_stub",
     "generate_stub_to_file",
     "generate_stub_with_validation",
+    "auto_generate_stubs",
+    # Analysis and validation
+    "analyze_stub_coverage",
+    "validate_dut_interface", 
     "validate_stub_syntax",
+    # Code generation
+    "generate_testbench_template",
+    # Mocking and testing
+    "MockDUT",
+    "MockSignal", 
+    "MockModule",
 ]

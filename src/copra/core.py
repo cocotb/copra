@@ -2,11 +2,10 @@
 # Licensed under the Revised BSD License, see LICENSE for details.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Generate Python type stubs for cocotb testbenches.
+"""Core stub generation functionality for copra.
 
-This module provides functionality to automatically generate Python type stubs (.pyi files)
-for cocotb Device Under Test (DUT) objects. The generated stubs enable IDE autocompletion
-and static type checking for cocotb testbenches.
+This module provides the fundamental functionality for discovering DUT hierarchies
+and generating Python type stubs for cocotb testbenches.
 
 Example usage:
     # From within a cocotb test:
@@ -41,9 +40,9 @@ from cocotb.handle import (
 # Print cocotb version for debugging
 try:
     import cocotb
-    print(f"[copra.stubgen] Using cocotb version: {cocotb.__version__}")
+    print(f"[copra.core] Using cocotb version: {cocotb.__version__}")
 except (ImportError, AttributeError):
-    print("[copra.stubgen] cocotb version information not available")
+    print("[copra.core] cocotb version information not available")
 
 from ._version import __version__
 from .utils import to_capwords
@@ -283,7 +282,14 @@ def generate_stub_to_file(hierarchy: Mapping[str, type], output_file: TextIO) ->
     # Organize hierarchy into module types and their members
     module_types: Dict[str, Dict[str, type]] = {}
 
-    for path, obj_type in hierarchy.items():
+    # First, add array base paths to the hierarchy so they can be processed as members
+    extended_hierarchy = dict(hierarchy)
+    for base_path, array_info in arrays.items():
+        if base_path not in extended_hierarchy:
+            # Add the array base path with a special marker type
+            extended_hierarchy[base_path] = type('ArrayBase', (), {'_is_array_base': True, '_element_type': array_info['element_type']})
+
+    for path, obj_type in extended_hierarchy.items():
         # Skip array elements - they'll be handled by array classes
         if re.match(r'^.+\[\d+\]$', path):
             continue
@@ -332,6 +338,9 @@ def generate_stub_to_file(hierarchy: Mapping[str, type], output_file: TextIO) ->
             member_path = f"{module_name.lower()}.{member_name}"
             if member_path in arrays:
                 array_members[member_name] = arrays[member_path]
+            elif hasattr(obj_type, '_is_array_base'):
+                # This is an array base type we added
+                array_members[member_name] = arrays[member_path] if member_path in arrays else {'element_type': getattr(obj_type, '_element_type', ValueObjectBase)}
             elif obj_type in (LogicObject, LogicArrayObject, ValueObjectBase,
                           RealObject, EnumObject, IntegerObject, StringObject):
                 signals[member_name] = obj_type
@@ -815,30 +824,6 @@ cocotb test functions.
     return 0
 
 
-def validate_stub_syntax(stub_content: str) -> bool:
-    """Validate that the generated stub content is syntactically correct Python.
-
-    Args:
-    ----
-        stub_content: The generated stub file content as a string.
-
-    Returns:
-    -------
-        True if the stub content is valid Python syntax, False otherwise.
-
-    """
-    try:
-        import ast
-        ast.parse(stub_content)
-        return True
-    except SyntaxError as e:
-        print(f"[copra] Warning: Generated stub has syntax error: {e}")
-        return False
-    except Exception as e:
-        print(f"[copra] Warning: Could not validate stub syntax: {e}")
-        return False
-
-
 def generate_stub_with_validation(hierarchy: Mapping[str, type]) -> str:
     """Generate a Python stub file with syntax validation.
 
@@ -855,6 +840,8 @@ def generate_stub_with_validation(hierarchy: Mapping[str, type]) -> str:
         SyntaxError: If the generated stub content is not valid Python syntax.
 
     """
+    from .analysis import validate_stub_syntax
+    
     stub_content = generate_stub(hierarchy)
 
     if not validate_stub_syntax(stub_content):

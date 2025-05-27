@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from copra.stubgen import main
+from copra.core import main
 
 
 class TestCLI:
@@ -188,7 +188,7 @@ class TestCLI:
 class TestCLIFutureImplementation:
     """Tests for the complete CLI implementation."""
 
-    @patch('copra.stubgen._run_discovery_simulation')
+    @patch('copra.core._run_discovery_simulation')
     @patch('builtins.open')
     def test_future_cli_success_with_output_file(
         self, mock_open: Mock, mock_discovery: Mock, tmp_path: Path
@@ -204,7 +204,7 @@ class TestCLIFutureImplementation:
 
         output_file = tmp_path / "test_output.pyi"
 
-        with patch('copra.stubgen.discover_hierarchy') as mock_discover:
+        with patch('copra.core.discover_hierarchy') as mock_discover:
             mock_discover.return_value = {"test_dut": Mock}
 
             result = main(["test_module", "--outfile", str(output_file)])
@@ -213,7 +213,7 @@ class TestCLIFutureImplementation:
             mock_discovery.assert_called_once_with("test_module")
             mock_discover.assert_called_once_with(mock_dut)
 
-    @patch('copra.stubgen._run_discovery_simulation')
+    @patch('copra.core._run_discovery_simulation')
     def test_future_cli_success_stdout(self, mock_discovery: Mock) -> None:
         """Test successful CLI execution writing to stdout."""
         # Setup mocks
@@ -221,7 +221,7 @@ class TestCLIFutureImplementation:
         mock_dut._name = "test_dut"
         mock_discovery.return_value = mock_dut
 
-        with patch('copra.stubgen.discover_hierarchy') as mock_discover:
+        with patch('copra.core.discover_hierarchy') as mock_discover:
             mock_discover.return_value = {"test_dut": Mock}
 
             result = main(["test_module"])
@@ -230,7 +230,7 @@ class TestCLIFutureImplementation:
             mock_discovery.assert_called_once_with("test_module")
             mock_discover.assert_called_once_with(mock_dut)
 
-    @patch('copra.stubgen._run_discovery_simulation')
+    @patch('copra.core._run_discovery_simulation')
     def test_future_cli_output_directory_creation(
         self, mock_discovery: Mock, tmp_path: Path
     ) -> None:
@@ -243,7 +243,7 @@ class TestCLIFutureImplementation:
         # Use a nested path that doesn't exist
         output_file = tmp_path / "nested" / "dir" / "output.pyi"
 
-        with patch('copra.stubgen.discover_hierarchy') as mock_discover:
+        with patch('copra.core.discover_hierarchy') as mock_discover:
             mock_discover.return_value = {"test_dut": Mock}
 
             result = main(["test_module", "--outfile", str(output_file)])
@@ -257,7 +257,7 @@ class TestCLIFutureImplementation:
     ) -> None:
         """Test CLI error handling for import errors."""
         with patch(
-            'copra.stubgen._run_discovery_simulation',
+            'copra.core._run_discovery_simulation',
             side_effect=ImportError("Module not found")
         ):
             result = main(["failing_module"])
@@ -266,7 +266,7 @@ class TestCLIFutureImplementation:
             captured = capsys.readouterr()
             assert "Import Error" in captured.err
 
-    @patch('copra.stubgen._run_discovery_simulation')
+    @patch('copra.core._run_discovery_simulation')
     def test_future_cli_error_handling_file_write_error(
         self, mock_discovery: Mock, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -283,7 +283,7 @@ class TestCLIFutureImplementation:
 
         output_file = readonly_dir / "output.pyi"
 
-        with patch('copra.stubgen.discover_hierarchy') as mock_discover:
+        with patch('copra.core.discover_hierarchy') as mock_discover:
             mock_discover.return_value = {"test_dut": Mock}
 
             result = main(["test_module", "--outfile", str(output_file)])

@@ -119,14 +119,39 @@ class TestModuleExports:
         """Test that all expected functions are exported."""
         import copra
 
-        expected_exports = [
+        # Core functionality exports
+        core_exports = [
             "__version__",
+            "create_stub_from_dut",
             "discover_hierarchy",
             "generate_stub",
             "generate_stub_to_file",
+            "generate_stub_with_validation",
+            "validate_stub_syntax",
+            "auto_generate_stubs",
         ]
 
-        for export in expected_exports:
+        # Analysis and validation exports
+        analysis_exports = [
+            "analyze_stub_coverage",
+            "validate_dut_interface",
+        ]
+
+        # Code generation exports
+        generation_exports = [
+            "generate_testbench_template",
+        ]
+
+        # Mocking and testing exports
+        mocking_exports = [
+            "MockDUT",
+            "MockSignal",
+            "MockModule",
+        ]
+
+        all_expected_exports = core_exports + analysis_exports + generation_exports + mocking_exports
+
+        for export in all_expected_exports:
             assert hasattr(copra, export), f"Missing export: {export}"
             assert export in copra.__all__, f"Export {export} not in __all__"
 
@@ -137,19 +162,64 @@ class TestModuleExports:
         assert isinstance(copra.__version__, str)
         assert len(copra.__version__) > 0
 
-    def test_functions_callable(self) -> None:
-        """Test that exported functions are callable."""
+    def test_core_functions_callable(self) -> None:
+        """Test that core exported functions are callable."""
         import copra
 
         callable_exports = [
+            "create_stub_from_dut",
             "discover_hierarchy",
             "generate_stub",
             "generate_stub_to_file",
+            "generate_stub_with_validation",
+            "validate_stub_syntax",
+            "auto_generate_stubs",
         ]
 
         for export in callable_exports:
             func = getattr(copra, export)
             assert callable(func), f"Export {export} is not callable"
+
+    def test_analysis_functions_callable(self) -> None:
+        """Test that analysis exported functions are callable."""
+        import copra
+
+        callable_exports = [
+            "analyze_stub_coverage",
+            "validate_dut_interface",
+        ]
+
+        for export in callable_exports:
+            func = getattr(copra, export)
+            assert callable(func), f"Export {export} is not callable"
+
+    def test_generation_functions_callable(self) -> None:
+        """Test that generation exported functions are callable."""
+        import copra
+
+        callable_exports = [
+            "generate_testbench_template",
+        ]
+
+        for export in callable_exports:
+            func = getattr(copra, export)
+            assert callable(func), f"Export {export} is not callable"
+
+    def test_mocking_classes_available(self) -> None:
+        """Test that mocking classes are available and instantiable."""
+        import copra
+
+        # Test MockSignal
+        signal = copra.MockSignal("test_signal")
+        assert signal._name == "test_signal"
+
+        # Test MockModule
+        module = copra.MockModule("test_module")
+        assert module._name == "test_module"
+
+        # Test MockDUT
+        dut = copra.MockDUT(name="test_dut")
+        assert dut._name == "test_dut"
 
 
 class TestVersionPrinting:
@@ -173,9 +243,62 @@ class TestVersionPrinting:
             if 'copra' in sys.modules:
                 del sys.modules['copra']
 
-
             # Check that version was printed (captured by capsys)
             capsys.readouterr()
             # Note: The actual output might be captured at module level
             # This test mainly ensures no exceptions are raised
             assert True
+
+
+class TestModuleStructure:
+    """Test the overall module structure and organization."""
+
+    def test_module_organization(self) -> None:
+        """Test that the module is properly organized."""
+        import copra
+
+        # Test that we can access all major components
+        assert hasattr(copra, 'core')
+        assert hasattr(copra, 'analysis')
+        assert hasattr(copra, 'generation')
+        assert hasattr(copra, 'mocking')
+
+        # Test that the main API is available at the top level
+        assert callable(copra.create_stub_from_dut)
+        assert callable(copra.discover_hierarchy)
+        assert callable(copra.generate_stub)
+
+    def test_backwards_compatibility(self) -> None:
+        """Test that the API maintains backwards compatibility."""
+        import copra
+
+        # These functions should still be available for backwards compatibility
+        essential_functions = [
+            "discover_hierarchy",
+            "generate_stub",
+            "create_stub_from_dut",
+        ]
+
+        for func_name in essential_functions:
+            assert hasattr(copra, func_name)
+            assert callable(getattr(copra, func_name))
+
+    def test_professional_api_structure(self) -> None:
+        """Test that the API follows professional structure patterns."""
+        import copra
+
+        # Core functionality should be easily accessible
+        assert hasattr(copra, 'create_stub_from_dut')
+        assert hasattr(copra, 'auto_generate_stubs')
+
+        # Analysis tools should be available
+        assert hasattr(copra, 'analyze_stub_coverage')
+        assert hasattr(copra, 'validate_dut_interface')
+
+        # Code generation should be available
+        assert hasattr(copra, 'generate_testbench_template')
+
+        # Mocking should be available
+        assert hasattr(copra, 'MockDUT')
+        assert hasattr(copra, 'MockSignal')
+        assert hasattr(copra, 'MockModule')

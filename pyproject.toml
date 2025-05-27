@@ -41,7 +41,7 @@ dev = [
 ]
 
 [project.scripts]
-copra = "copra.stubgen:main"
+copra = "copra.core:main"
 
 [tool.ruff]
 line-length = 100

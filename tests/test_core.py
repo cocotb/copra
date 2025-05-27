@@ -1,4 +1,4 @@
-"""Tests for the copra.stubgen module."""
+"""Tests for the copra.core module."""
 
 import io
 from pathlib import Path
@@ -21,11 +21,11 @@ from cocotb.handle import (
 # Print cocotb version for debugging
 try:
     import cocotb
-    print(f"[test_stubgen] Using cocotb version: {cocotb.__version__}")
+    print(f"[test_core] Using cocotb version: {cocotb.__version__}")
 except (ImportError, AttributeError):
-    print("[test_stubgen] cocotb version information not available")
+    print("[test_core] cocotb version information not available")
 
-from copra.stubgen import discover_hierarchy, generate_stub, generate_stub_to_file, main
+from copra.core import discover_hierarchy, generate_stub, generate_stub_to_file, main
 
 
 class MockHandle:
@@ -357,7 +357,7 @@ class TestGenerateStubToFile:
         assert "class Dut(HierarchyObject):" in content
         assert "clk: LogicObject" in content
         assert "data_in: LogicObject" in content
-        assert "submodule: HierarchyObject" in content
+        assert "submodule: Submodule" in content  # Should reference the Submodule class
 
     def test_generate_stub_to_file_with_typing_imports(self) -> None:
         """Test generation with types that might need typing imports."""
@@ -382,8 +382,9 @@ class TestGenerateStubToFile:
         generate_stub_to_file(hierarchy, output_file)
 
         content = output_file.getvalue()
-        # Array indices should be stripped from class names
-        assert "array: LogicObject" in content
+        # Arrays should be handled with array classes
+        assert "ArrayArray" in content  # Array class should be generated
+        assert "array: ArrayArray" in content  # Should reference the array class
 
 
 class TestMain:
@@ -459,7 +460,7 @@ class TestEdgeCases:
         """Test that version information is printed on module import."""
         # The version printing happens at module import time
         # This test ensures the import doesn't crash
-        from copra import stubgen
+        from copra import core
 
         # If we get here, the import succeeded
-        assert stubgen is not None
+        assert core is not None

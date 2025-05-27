@@ -40,3 +40,7 @@ Thumbs.db
 
 # generated stubs
 *.pyi
+
+*.dutdoc.md
+
+copra_demo_output
