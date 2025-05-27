@@ -50,6 +50,14 @@ from .core import (
 from .generation import (
     generate_testbench_template,
 )
+from .integration import (
+    CocotbIntegration,
+    RunnerIntegration,
+    cocotb_test_wrapper,
+    setup_automatic_stub_generation,
+    integrate_with_makefile,
+    create_copra_config,
+)
 from .mocking import (
     MockDUT,
     MockModule,
@@ -109,4 +117,11 @@ __all__ = [
     "MockDUT",
     "MockSignal",
     "MockModule",
+    # Integration
+    "CocotbIntegration",
+    "RunnerIntegration",
+    "cocotb_test_wrapper",
+    "setup_automatic_stub_generation",
+    "integrate_with_makefile",
+    "create_copra_config",
 ]

@@ -63,7 +63,8 @@ F = TypeVar('F', bound=Callable[..., Any])
 
 
 def discover_hierarchy(
-    dut: Any, max_depth: int = 50, include_constants: bool = False
+    dut: Any, max_depth: int = 50, include_constants: bool = False,
+    performance_mode: bool = False, array_detection: bool = True
 ) -> Dict[str, type]:
     """Discover the hierarchy of objects in the DUT.
 
@@ -72,6 +73,8 @@ def discover_hierarchy(
         dut: The root DUT object.
         max_depth: Maximum recursion depth to prevent infinite loops.
         include_constants: Whether to include constant signals in discovery.
+        performance_mode: Enable optimizations for large hierarchies.
+        array_detection: Enable enhanced array pattern detection.
 
     Returns:
     -------
@@ -90,8 +93,16 @@ def discover_hierarchy(
     discovery_stats = {
         'total_objects': 0,
         'max_depth_reached': 0,
-        'errors_encountered': 0
+        'errors_encountered': 0,
+        'arrays_detected': 0,
+        'performance_optimizations': 0
     }
+
+    # Performance optimization: use iterative approach for large hierarchies
+    if performance_mode:
+        return _discover_hierarchy_iterative(
+            dut, max_depth, include_constants, array_detection, discovery_stats
+        )
 
     def _discover(obj: object, path: str, current_depth: int = 0) -> None:
         """Recursively discover the DUT hierarchy.
@@ -121,6 +132,17 @@ def discover_hierarchy(
 
         # Build the full path
         full_path = f"{path}.{obj_name}" if path else obj_name
+
+        # Enhanced array detection
+        if array_detection and _is_array_element(obj_name):
+            discovery_stats['arrays_detected'] += 1
+            # Handle array elements specially
+            base_name, index = _parse_array_element(obj_name)
+            if base_name:
+                array_base_path = f"{path}.{base_name}" if path else base_name
+                if array_base_path not in hierarchy:
+                    # Create array base entry
+                    hierarchy[array_base_path] = _get_array_base_type(obj)
 
         # Store the object type in hierarchy
         # For mock handles used in tests, use the intended handle type
@@ -194,9 +216,112 @@ def discover_hierarchy(
 
     print(f"[copra] Discovery completed: {discovery_stats['total_objects']} objects, "
           f"max depth {discovery_stats['max_depth_reached']}, "
-          f"{discovery_stats['errors_encountered']} errors")
+          f"{discovery_stats['errors_encountered']} errors, "
+          f"{discovery_stats['arrays_detected']} arrays detected")
 
     return hierarchy
+
+
+def _discover_hierarchy_iterative(
+    dut: Any, max_depth: int, include_constants: bool, 
+    array_detection: bool, discovery_stats: Dict[str, int]
+) -> Dict[str, type]:
+    """Iterative hierarchy discovery for performance optimization.
+    
+    This approach uses a stack instead of recursion to handle very large hierarchies
+    without hitting Python's recursion limit.
+    """
+    hierarchy: Dict[str, type] = {}
+    
+    # Stack contains tuples of (object, path, depth)
+    stack = [(dut, "", 0)]
+    
+    while stack:
+        obj, path, current_depth = stack.pop()
+        
+        if current_depth > max_depth:
+            print(f"[copra] Warning: Maximum depth exceeded at {path}, skipping")
+            continue
+            
+        discovery_stats['max_depth_reached'] = max(
+            discovery_stats['max_depth_reached'], current_depth
+        )
+        discovery_stats['performance_optimizations'] += 1
+        
+        # Get the object name
+        obj_name = getattr(obj, '_name', None)
+        if obj_name is None:
+            continue
+
+        # Build the full path
+        full_path = f"{path}.{obj_name}" if path else obj_name
+
+        # Enhanced array detection
+        if array_detection and _is_array_element(obj_name):
+            discovery_stats['arrays_detected'] += 1
+
+        # Store the object type in hierarchy
+        if hasattr(obj, '_handle_type'):
+            hierarchy[full_path] = obj._handle_type
+        else:
+            hierarchy[full_path] = type(obj)
+
+        discovery_stats['total_objects'] += 1
+
+        # Skip constants unless explicitly requested
+        if not include_constants and hasattr(obj, '_type') and 'const' in str(obj._type).lower():
+            continue
+
+        # Discover sub-handles and add to stack
+        try:
+            if hasattr(obj, '_discover_all') and callable(obj._discover_all):
+                try:
+                    obj._discover_all()
+                except Exception as e:
+                    discovery_stats['errors_encountered'] += 1
+                    continue
+
+            sub_handles = {}
+            if hasattr(obj, '_sub_handles') and isinstance(obj._sub_handles, dict):
+                sub_handles = obj._sub_handles
+            elif hasattr(obj, '_sub_handles') and hasattr(obj, '_sub_handles_iter'):
+                try:
+                    sub_handles = {h._name: h for h in obj._sub_handles_iter()}
+                except (TypeError, AttributeError):
+                    pass
+
+            # Add children to stack (in reverse order to maintain depth-first traversal)
+            for name, child in reversed(list(sub_handles.items())):
+                if child is not None and hasattr(child, '_name'):
+                    stack.append((child, full_path, current_depth + 1))
+                    
+        except Exception as e:
+            discovery_stats['errors_encountered'] += 1
+            continue
+    
+    return hierarchy
+
+
+def _is_array_element(name: str) -> bool:
+    """Check if a name represents an array element (contains [index])."""
+    import re
+    return bool(re.search(r'\[\d+\]', name))
+
+
+def _parse_array_element(name: str) -> tuple[str, int]:
+    """Parse array element name to get base name and index."""
+    import re
+    match = re.search(r'^(.+)\[(\d+)\]$', name)
+    if match:
+        return match.group(1), int(match.group(2))
+    return "", -1
+
+
+def _get_array_base_type(obj: Any) -> type:
+    """Get the appropriate base type for an array."""
+    if hasattr(obj, '_handle_type'):
+        return obj._handle_type
+    return type(obj)
 
 
 def _extract_array_info(hierarchy: Mapping[str, type]) -> Dict[str, Dict[str, Any]]:
@@ -283,7 +408,11 @@ class {class_name}(Sequence[{element_type}]):
         ------
             IndexError: If index is out of bounds.
         \"\"\"
-        ...
+        if not ({min_index} <= index <= {max_index}):
+            raise IndexError(f"Array index {{index}} out of bounds [{min_index}:{max_index}]")
+        # In a real implementation, this would return the actual array element
+        # For stub purposes, this is a type hint only
+        raise NotImplementedError("This is a type stub - use the actual DUT object")
 
     def __len__(self) -> int:
         \"\"\"Get array length.
@@ -301,7 +430,8 @@ class {class_name}(Sequence[{element_type}]):
         -------
             Iterator over array elements.
         \"\"\"
-        ...
+        for i in range({min_index}, {max_index} + 1):
+            yield self[i]
 
     def __contains__(self, item: object) -> bool:
         \"\"\"Check if item is in the array.
@@ -314,7 +444,14 @@ class {class_name}(Sequence[{element_type}]):
         -------
             True if item is in array, False otherwise.
         \"\"\"
-        ...
+        try:
+            for element in self:
+                if element == item:
+                    return True
+            return False
+        except NotImplementedError:
+            # This is a stub, so we can't actually check containment
+            return False
 
     @property
     def min_index(self) -> int:
@@ -872,6 +1009,27 @@ cocotb test functions.
         action='store_true',
         help='Show detailed statistics about the discovered hierarchy',
     )
+    parser.add_argument(
+        '--performance-mode',
+        action='store_true',
+        help='Enable performance optimizations for large hierarchies',
+    )
+    parser.add_argument(
+        '--no-array-detection',
+        action='store_true',
+        help='Disable enhanced array pattern detection',
+    )
+    parser.add_argument(
+        '--output-format',
+        choices=['stub', 'documentation', 'both'],
+        default='stub',
+        help='Output format: stub only, documentation only, or both (default: stub)',
+    )
+    parser.add_argument(
+        '--template',
+        default='default',
+        help='Template to use for stub generation (default: default)',
+    )
 
     parsed_args = parser.parse_args(args)
 
@@ -898,7 +1056,9 @@ cocotb test functions.
         hierarchy = discover_hierarchy(
             dut,
             max_depth=parsed_args.max_depth,
-            include_constants=parsed_args.include_constants
+            include_constants=parsed_args.include_constants,
+            performance_mode=parsed_args.performance_mode,
+            array_detection=not parsed_args.no_array_detection
         )
 
         if not hierarchy:
@@ -921,17 +1081,32 @@ cocotb test functions.
             print(f"[copra] Generating {parsed_args.format} output...")
 
         if parsed_args.format == 'pyi':
-            if parsed_args.no_validation:
-                output_content = generate_stub(hierarchy)
-            else:
-                try:
-                    output_content = generate_stub_with_validation(hierarchy)
-                    if parsed_args.verbose:
-                        print("[copra] Stub syntax validation passed")
-                except SyntaxError as e:
-                    print(f"[copra] Error: Generated stub has syntax errors: {e}", file=sys.stderr)
-                    print("[copra] Try using --no-validation to skip validation", file=sys.stderr)
-                    return 1
+            if parsed_args.output_format in ['stub', 'both']:
+                if parsed_args.no_validation:
+                    output_content = generate_stub(hierarchy)
+                else:
+                    try:
+                        output_content = generate_stub_with_validation(hierarchy)
+                        if parsed_args.verbose:
+                            print("[copra] Stub syntax validation passed")
+                    except SyntaxError as e:
+                        print(f"[copra] Error: Generated stub has syntax errors: {e}", file=sys.stderr)
+                        print("[copra] Try using --no-validation to skip validation", file=sys.stderr)
+                        return 1
+                        
+                # Write stub file
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    f.write(output_content)
+                    
+            if parsed_args.output_format in ['documentation', 'both']:
+                # Generate documentation alongside stub
+                from .generation import DocumentationGenerator
+                doc_generator = DocumentationGenerator('markdown')
+                doc_path = output_path.with_suffix('.dutdoc.md')
+                doc_content = doc_generator.generate_interface_documentation(hierarchy, str(doc_path))
+                if parsed_args.verbose:
+                    print(f"[copra] Generated documentation: {doc_path}")
+                    
         elif parsed_args.format == 'json':
             import json
             # Convert hierarchy to JSON-serializable format
@@ -948,9 +1123,11 @@ cocotb test functions.
                 print("[copra] Install with: pip install PyYAML", file=sys.stderr)
                 return 1
 
-        # Write to output file
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(output_content)
+        # Write to output file (for non-pyi formats or when only stub is requested)
+        if parsed_args.format != 'pyi' or parsed_args.output_format == 'stub':
+            if 'output_content' in locals():
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    f.write(output_content)
 
         print(f"[copra] Successfully generated {parsed_args.format} file: {output_path}")
         if parsed_args.verbose:

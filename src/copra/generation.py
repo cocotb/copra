@@ -79,15 +79,40 @@ Usage:
     Index range: [{min_index}:{max_index}]
     """
 
-    def __getitem__(self, index: int) -> {element_type}: ...
-    def __len__(self) -> int: ...
-    def __iter__(self) -> Iterator[{element_type}]: ...
-    def __contains__(self, item: object) -> bool: ...
+    def __getitem__(self, index: int) -> {element_type}:
+        """Get array element by index."""
+        if not ({min_index} <= index <= {max_index}):
+            raise IndexError(f"Array index {{index}} out of bounds [{min_index}:{max_index}]")
+        raise NotImplementedError("This is a type stub - use the actual DUT object")
+        
+    def __len__(self) -> int:
+        """Get array length."""
+        return {size}
+        
+    def __iter__(self) -> Iterator[{element_type}]:
+        """Iterate over array elements."""
+        for i in range({min_index}, {max_index} + 1):
+            yield self[i]
+            
+    def __contains__(self, item: object) -> bool:
+        """Check if item is in the array."""
+        try:
+            for element in self:
+                if element == item:
+                    return True
+            return False
+        except NotImplementedError:
+            return False
 
     @property
-    def min_index(self) -> int: ...
+    def min_index(self) -> int:
+        """Get minimum valid index."""
+        return {min_index}
+        
     @property
-    def max_index(self) -> int: ...
+    def max_index(self) -> int:
+        """Get maximum valid index."""
+        return {max_index}
 
 '''
 
