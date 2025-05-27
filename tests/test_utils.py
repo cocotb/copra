@@ -5,7 +5,6 @@ from typing import Any, Set, Type
 from unittest.mock import Mock
 
 import pytest
-
 from copra.utils import (
     format_docstring,
     get_imports_for_types,

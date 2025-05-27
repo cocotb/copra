@@ -168,7 +168,7 @@ pip install -e .[test]
 pytest tests/ -v
 
 # Run a specific test file
-pytest tests/test_stubgen.py -v
+pytest tests/test_core.py -v
 
 # Run with coverage report
 pytest --cov=copra tests/

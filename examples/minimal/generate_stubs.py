@@ -8,7 +8,7 @@ for a simple DUT within a self-contained example.
 from pathlib import Path
 
 # Import copra as an installed library
-from copra.stubgen import generate_stub
+from copra import generate_stub
 
 
 # Mock the cocotb classes for demonstration purposes

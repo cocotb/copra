@@ -13,6 +13,7 @@ async def test_minimal(dut):
     """Test the minimal example module.
 
     Args:
+    ----
         dut: The DUT (Design Under Test) handle.
 
     """

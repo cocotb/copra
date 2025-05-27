@@ -7,12 +7,25 @@ from cocotb.handle import (
 )
 
 class Minimal(HierarchyObject):
-    """Auto-generated class for Minimal."""
+    """Auto-generated class for Minimal.
 
+    This class provides typed access to the DUT hierarchy,
+    enabling IDE autocompletion and static type checking.
+
+    Sub-modules:
+        clk: Clk (hierarchical module)
+        data_in: DataIn (hierarchical module)
+        data_out: DataOut (hierarchical module)
+        minimal: Minimal (hierarchical module)
+        rst_n: RstN (hierarchical module)
+
+    """
+
+    # Sub-module attributes
     clk: HierarchyObject
     data_in: HierarchyObject
     data_out: HierarchyObject
-    minimal: HierarchyObject
+    minimal: Minimal
     rst_n: HierarchyObject
 
 # Type alias for the main DUT

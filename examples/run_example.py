@@ -6,7 +6,7 @@ from pathlib import Path
 # Add the parent directory to the path so we can import copra
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from copra.stubgen import discover_hierarchy, generate_stub
+from copra import discover_hierarchy, generate_stub
 
 
 def run_example():

@@ -13,6 +13,7 @@ async def test_dff(dut):
     """Test a simple D flip-flop.
 
     Args:
+    ----
         dut: The DUT (Design Under Test) handle.
 
     """

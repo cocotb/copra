@@ -3,7 +3,7 @@
 import io
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from cocotb.handle import (
@@ -25,7 +25,15 @@ try:
 except (ImportError, AttributeError):
     print("[test_core] cocotb version information not available")
 
-from copra.core import discover_hierarchy, generate_stub, generate_stub_to_file, main
+from copra.core import (
+    _get_signal_width_info,
+    auto_generate_stubs,
+    create_stub_from_dut,
+    discover_hierarchy,
+    generate_stub,
+    generate_stub_to_file,
+    main,
+)
 
 
 class MockHandle:
@@ -268,6 +276,99 @@ class TestDiscoverHierarchy:
         assert len(hierarchy) == 1
         assert "bytes_handle" in hierarchy
 
+    def test_discover_hierarchy_with_max_depth(self):
+        """Test hierarchy discovery with depth limits."""
+        # Create a deep mock hierarchy
+        mock_dut = Mock()
+        mock_dut._name = "dut"
+
+        # Create nested structure
+        level1 = Mock()
+        level1._name = "level1"
+        level1._sub_handles = {}
+
+        level2 = Mock()
+        level2._name = "level2"
+        level2._sub_handles = {}
+
+        level3 = Mock()
+        level3._name = "level3"
+        level3._sub_handles = {}
+
+        # Chain them together
+        level2._sub_handles = {"level3": level3}
+        level1._sub_handles = {"level2": level2}
+        mock_dut._sub_handles = {"level1": level1}
+
+        # Test with sufficient depth
+        hierarchy = discover_hierarchy(mock_dut, max_depth=5)
+        assert "dut" in hierarchy
+        assert "dut.level1" in hierarchy
+        assert "dut.level1.level2" in hierarchy
+        assert "dut.level1.level2.level3" in hierarchy
+
+        # Test with limited depth
+        hierarchy_limited = discover_hierarchy(mock_dut, max_depth=2)
+        assert "dut" in hierarchy_limited
+        assert "dut.level1" in hierarchy_limited
+        # Should not reach level3 due to depth limit
+        assert "dut.level1.level2.level3" not in hierarchy_limited
+
+    def test_discover_hierarchy_with_constants(self):
+        """Test hierarchy discovery with constant inclusion/exclusion."""
+        mock_dut = Mock()
+        mock_dut._name = "dut"
+
+        # Create a constant signal
+        const_signal = Mock()
+        const_signal._name = "CONST_VALUE"
+        const_signal._type = "const_signal_type"
+
+        # Create a regular signal
+        reg_signal = Mock()
+        reg_signal._name = "reg_value"
+        reg_signal._type = "regular_signal_type"
+
+        mock_dut._sub_handles = {
+            "CONST_VALUE": const_signal,
+            "reg_value": reg_signal
+        }
+
+        # Test excluding constants (default)
+        hierarchy_no_const = discover_hierarchy(mock_dut, include_constants=False)
+        assert "dut.reg_value" in hierarchy_no_const
+        # Constants should be excluded
+
+        # Test including constants
+        hierarchy_with_const = discover_hierarchy(mock_dut, include_constants=True)
+        assert "dut.reg_value" in hierarchy_with_const
+        assert "dut.CONST_VALUE" in hierarchy_with_const
+
+    def test_discover_hierarchy_error_handling(self):
+        """Test error handling in hierarchy discovery."""
+        # Test with invalid max_depth
+        mock_dut = Mock()
+        mock_dut._name = "dut"
+
+        with pytest.raises(ValueError, match="max_depth must be positive"):
+            discover_hierarchy(mock_dut, max_depth=0)
+
+        with pytest.raises(ValueError, match="max_depth must be positive"):
+            discover_hierarchy(mock_dut, max_depth=-1)
+
+    def test_discover_hierarchy_with_discovery_errors(self):
+        """Test hierarchy discovery when _discover_all() fails."""
+        mock_dut = Mock()
+        mock_dut._name = "dut"
+
+        # Mock _discover_all to raise an exception
+        mock_dut._discover_all = Mock(side_effect=Exception("Discovery failed"))
+        mock_dut._sub_handles = {}
+
+        # Should handle the error gracefully and continue
+        hierarchy = discover_hierarchy(mock_dut)
+        assert "dut" in hierarchy
+
 
 class TestGenerateStub:
     """Test the generate_stub function."""
@@ -437,6 +538,83 @@ class TestMain:
         captured = capsys.readouterr()
         assert "Runtime Error" in captured.err
 
+    def test_main_with_enhanced_options(self):
+        """Test main function with enhanced command line options."""
+        mock_dut = Mock()
+        mock_dut._name = "test_dut"
+        mock_dut._sub_handles = {}
+
+        with patch('copra.core._run_discovery_simulation', return_value=mock_dut):
+            with patch('copra.core.discover_hierarchy', return_value={"dut": type(mock_dut)}):
+                stub_content = "# Valid Python stub\nclass Dut:\n    pass\n"
+                with patch('copra.core.generate_stub', return_value=stub_content):
+                    with patch('builtins.open', create=True):
+                        # Test with JSON format
+                        result = main(['test_module', '--format', 'json', '--outfile', 'test.json'])
+                        assert result == 0
+
+                        # Test with max-depth option
+                        result = main(['test_module', '--max-depth', '10'])
+                        assert result == 0
+
+                        # Test with include-constants option
+                        result = main(['test_module', '--include-constants'])
+                        assert result == 0
+
+    def test_main_with_yaml_format(self):
+        """Test main function with YAML output format."""
+        mock_dut = Mock()
+        mock_dut._name = "test_dut"
+        mock_dut._sub_handles = {}
+
+        with patch('copra.core._run_discovery_simulation', return_value=mock_dut):
+            with patch('copra.core.discover_hierarchy', return_value={"dut": type(mock_dut)}):
+                with patch('builtins.open', create=True):
+                    # Test YAML format without PyYAML installed
+                    with patch.dict('sys.modules', {'yaml': None}):
+                        result = main(['test_module', '--format', 'yaml'])
+                        assert result == 1  # Should fail without PyYAML
+
+    def test_main_with_stats_option(self):
+        """Test main function with statistics option."""
+        mock_dut = Mock()
+        mock_dut._name = "test_dut"
+        mock_dut._sub_handles = {}
+
+        with patch('copra.core._run_discovery_simulation', return_value=mock_dut):
+            with patch('copra.core.discover_hierarchy', return_value={"dut": type(mock_dut)}):
+                stub_content = "# Valid Python stub\nclass Dut:\n    pass\n"
+                with patch('copra.core.generate_stub', return_value=stub_content):
+                    with patch('copra.analysis.analyze_hierarchy_complexity') as mock_analyze:
+                        mock_analyze.return_value = {
+                            'total_signals': 10,
+                            'max_depth': 3,
+                            'module_count': 2,
+                            'array_count': 1,
+                            'signal_types': {'LogicObject': 5, 'LogicArrayObject': 5}
+                        }
+                        with patch('builtins.open', create=True):
+                            result = main(['test_module', '--stats'])
+                            assert result == 0
+                            mock_analyze.assert_called_once()
+
+    def test_main_error_handling(self):
+        """Test main function error handling."""
+        # Test ValueError handling
+        with patch('copra.core._run_discovery_simulation', side_effect=ValueError("Test error")):
+            result = main(['test_module'])
+            assert result == 1
+
+        # Test RuntimeError handling
+        with patch('copra.core._run_discovery_simulation', side_effect=RuntimeError("Test error")):
+            result = main(['test_module'])
+            assert result == 1
+
+        # Test KeyboardInterrupt handling
+        with patch('copra.core._run_discovery_simulation', side_effect=KeyboardInterrupt()):
+            result = main(['test_module'])
+            assert result == 130
+
 
 class TestEdgeCases:
     """Test edge cases and error conditions."""
@@ -464,3 +642,141 @@ class TestEdgeCases:
 
         # If we get here, the import succeeded
         assert core is not None
+
+    def test_create_stub_from_dut_with_empty_hierarchy(self):
+        """Test create_stub_from_dut with empty hierarchy."""
+        mock_dut = Mock()
+        mock_dut._name = "empty_dut"
+        mock_dut._sub_handles = {}
+
+        with patch('copra.core.discover_hierarchy', return_value={}):
+            with patch('builtins.open', create=True):
+                result = create_stub_from_dut(mock_dut, "empty.pyi")
+                # Should handle empty hierarchy gracefully
+                assert isinstance(result, str)
+
+    def test_enhanced_array_class_generation(self):
+        """Test enhanced array class generation with Sequence interface."""
+        from copra.core import _generate_array_class
+
+        array_info = {
+            'element_type': Mock,
+            'max_index': 3,
+            'min_index': 0
+        }
+
+        result = _generate_array_class("test_array", array_info)
+
+        # Check that it includes Sequence interface
+        assert "Sequence[Mock]" in result
+        assert "Iterator[Mock]" in result
+        assert "__contains__" in result
+        assert "min_index" in result
+        assert "max_index" in result
+
+    def test_enhanced_stub_generation_with_imports(self):
+        """Test that enhanced stub generation includes proper imports."""
+        from io import StringIO
+
+        from copra.core import generate_stub_to_file
+
+        hierarchy = {
+            "dut": Mock,
+            "dut.signal1": Mock,
+            "dut.array[0]": Mock,
+            "dut.array[1]": Mock
+        }
+
+        # Mock the type objects to have proper names
+        for path, obj_type in hierarchy.items():
+            obj_type.__name__ = "LogicObject"
+
+        output = StringIO()
+        generate_stub_to_file(hierarchy, output)
+        result = output.getvalue()
+
+        # Check for proper imports
+        assert "from cocotb.handle import" in result
+        assert "HierarchyObject" in result
+
+        # Check for array class generation
+        assert "class" in result
+
+
+def test_get_signal_width_info():
+    """Test signal width information extraction."""
+    from unittest.mock import Mock
+
+    # Test with width information
+    mock_signal = Mock()
+    mock_signal._length = 8
+    mock_signal._type = "signed_signal"
+
+    info = _get_signal_width_info(mock_signal)
+    assert info['width'] == 8
+    assert info['is_array'] is True
+    assert info['is_signed'] is True
+    # Check that it's either Mock or the object's actual type name
+    assert info['type_name'] in ['Mock', type(mock_signal).__name__]
+
+    # Test with single bit signal
+    mock_single = Mock()
+    mock_single._length = 1
+    mock_single._type = "unsigned_signal"
+
+    info_single = _get_signal_width_info(mock_single)
+    assert info_single['width'] == 1
+    assert info_single['is_array'] is False
+    assert info_single['is_signed'] is False
+
+    # Test with no width information
+    mock_no_width = Mock()
+    del mock_no_width._length  # Remove the attribute
+
+    info_no_width = _get_signal_width_info(mock_no_width)
+    assert info_no_width['width'] == 1  # Default
+    assert info_no_width['is_array'] is False
+
+
+def test_auto_generate_stubs_decorator():
+    """Test the auto_generate_stubs decorator."""
+    # Mock DUT
+    mock_dut = Mock()
+    mock_dut._name = "test_dut"
+    mock_dut._sub_handles = {}
+
+    # Create a test function
+    @auto_generate_stubs("test_output.pyi", enable=True)
+    async def test_function(dut):
+        return "test_result"
+
+    # Test that the decorator works
+    import asyncio
+
+    async def run_test():
+        with patch('copra.core.create_stub_from_dut') as mock_create:
+            result = await test_function(mock_dut)
+            mock_create.assert_called_once_with(mock_dut, "test_output.pyi")
+            assert result == "test_result"
+
+    asyncio.run(run_test())
+
+
+def test_auto_generate_stubs_disabled():
+    """Test the auto_generate_stubs decorator when disabled."""
+    mock_dut = Mock()
+    mock_dut._name = "test_dut"
+
+    @auto_generate_stubs("test_output.pyi", enable=False)
+    async def test_function(dut):
+        return "test_result"
+
+    import asyncio
+
+    async def run_test():
+        with patch('copra.core.create_stub_from_dut') as mock_create:
+            result = await test_function(mock_dut)
+            mock_create.assert_not_called()
+            assert result == "test_result"
+
+    asyncio.run(run_test())

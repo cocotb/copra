@@ -149,7 +149,12 @@ class TestModuleExports:
             "MockModule",
         ]
 
-        all_expected_exports = core_exports + analysis_exports + generation_exports + mocking_exports
+        all_expected_exports = (
+            core_exports +
+            analysis_exports +
+            generation_exports +
+            mocking_exports
+        )
 
         for export in all_expected_exports:
             assert hasattr(copra, export), f"Missing export: {export}"

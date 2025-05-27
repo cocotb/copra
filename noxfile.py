@@ -36,7 +36,6 @@ Usage examples:
 import os
 import shutil
 from pathlib import Path
-import time
 
 import nox
 
@@ -139,7 +138,7 @@ def install_cocotb_and_cache(session, cocotb_spec):
                 python_version = session.python
                 major, minor = python_version.split(".")[:2]
                 python_tag = f"{major}{minor}"
-                
+
                 # Filter for compatible wheels first
                 compatible_wheels = []
                 for wheel_file in wheel_files:
@@ -151,7 +150,7 @@ def install_cocotb_and_cache(session, cocotb_spec):
                     )
                     if is_compatible:
                         compatible_wheels.append(wheel_file)
-                
+
                 if compatible_wheels:
                     # Use the most recent compatible wheel
                     latest_wheel = max(compatible_wheels, key=lambda p: p.stat().st_mtime)
@@ -166,7 +165,9 @@ def install_cocotb_and_cache(session, cocotb_spec):
             COCOTB_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
             # Build wheel directly in the cache directory
-            session.log(f"Building wheel directly in cache directory: {COCOTB_CACHE_DIR}")
+            session.log(
+                f"Building wheel for Python {session.python} in cache directory: {COCOTB_CACHE_DIR}"
+            )
 
             # Build the wheel directly in the cache directory
             session.run(
@@ -258,11 +259,11 @@ def examples(session):
         "ruff",
         cocotb_spec,
     )
-    
+
     # Install our package without dependencies first, then let pip resolve
     session.install("-e", ".", "--no-deps")
     session.install("packaging")  # Required dependency for our package
-    
+
     # Generate stubs for each example
     examples_dir = HERE / "examples"
     for example_dir in examples_dir.iterdir():
@@ -270,11 +271,13 @@ def examples(session):
             session.log(f"Generating stubs for example: {example_dir.name}")
             with session.chdir(example_dir):
                 session.run("python", "generate_stubs.py")
-                
+
                 # Check generated stub files with ruff
                 stub_files = list(example_dir.glob("*.pyi"))
                 if stub_files:
-                    session.log(f"Checking generated stub files with ruff: {[f.name for f in stub_files]}")
+                    session.log(
+                        f"Checking generated stub files with ruff: {[f.name for f in stub_files]}"
+                    )
                     session.run("ruff", "check", *[str(f) for f in stub_files])
                 else:
                     session.log(f"No stub files found in {example_dir.name}")
@@ -384,8 +387,10 @@ def build_cocotb_wheels_all(session):
     session.install("pip", "setuptools", "wheel", "--upgrade")
 
     # Build wheel directly from git source into cache directory
-    session.log(f"Building wheel for Python {session.python} in cache directory: {COCOTB_CACHE_DIR}")
-    
+    session.log(
+        f"Building wheel for Python {session.python} in cache directory: {COCOTB_CACHE_DIR}"
+    )
+
     session.run(
         "python", "-m", "pip", "wheel",
         "--no-deps",
@@ -395,7 +400,7 @@ def build_cocotb_wheels_all(session):
     )
 
     # List created wheels for this Python version
-    wheels = [w for w in COCOTB_CACHE_DIR.glob("cocotb-*.whl") 
+    wheels = [w for w in COCOTB_CACHE_DIR.glob("cocotb-*.whl")
               if f"cp{session.python.replace('.', '')}" in w.name]
     if wheels:
         latest_wheel = max(wheels, key=lambda p: p.stat().st_mtime)
@@ -407,7 +412,7 @@ def build_cocotb_wheels_all(session):
 @nox.session(python=PYTHON_VERSIONS[-1])
 def build_cocotb_wheel(session):
     """Build cocotb wheel and cache it for faster subsequent runs.
-    
+
     Note: This builds a wheel for the current Python version. If you need
     compatibility across multiple Python versions, consider using:
     - COCOTB_LOCAL_PATH for local development
@@ -423,9 +428,11 @@ def build_cocotb_wheel(session):
     session.install("pip", "setuptools", "wheel", "--upgrade")
 
     # Build wheel directly from git source into cache directory
-    session.log(f"Building wheel directly in cache directory: {COCOTB_CACHE_DIR}")
+    session.log(
+        f"Building wheel for Python {session.python} in cache directory: {COCOTB_CACHE_DIR}"
+    )
     session.log(f"This wheel will be compatible with Python {session.python}")
-    
+
     session.run(
         "python", "-m", "pip", "wheel",
         "--no-deps",
@@ -439,14 +446,19 @@ def build_cocotb_wheel(session):
     if wheels:
         latest_wheel = max(wheels, key=lambda p: p.stat().st_mtime)
         session.log(f"Successfully built and cached cocotb wheel: {latest_wheel}")
-        session.log("This wheel will be automatically used in future nox runs with compatible Python versions.")
+        session.log(
+            "This wheel will be automatically used in future nox runs "
+            "with compatible Python versions."
+        )
         session.log(f"Or you can explicitly use it with: COCOTB_LOCAL_WHEEL={latest_wheel}")
-        
+
         # Check if it's a universal wheel
         if "py3-none-any" in latest_wheel.name or "py2.py3-none-any" in latest_wheel.name:
             session.log("✓ Built universal wheel - compatible with all Python versions")
         else:
-            session.log(f"⚠ Built platform-specific wheel - only compatible with Python {session.python}")
+            session.log(
+                f"⚠ Built platform-specific wheel - only compatible with Python {session.python}"
+            )
             session.log("To build for all Python versions, run: nox -s build_cocotb_wheels_all")
     else:
         session.error("Failed to create cocotb wheel")

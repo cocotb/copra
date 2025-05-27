@@ -5,16 +5,13 @@ API Reference
 
 This page provides documentation for the public API of copra.
 
-Stub Generator
---------------
+Core Module
+-----------
 
-The main entry point for generating type stubs.
-
-.. automodule:: copra.stubgen
+.. automodule:: copra.core
    :members:
    :undoc-members:
    :show-inheritance:
-   :member-order: bysource
 
 Utilities
 ---------

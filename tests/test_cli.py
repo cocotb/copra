@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-
 from copra.core import main
 
 
@@ -171,7 +170,7 @@ class TestCLI:
         assert result == 1
 
         captured = capsys.readouterr()
-        assert "Unexpected error" in captured.err
+        assert "Value Error" in captured.err
 
     def test_cli_empty_hierarchy(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test CLI with empty hierarchy discovery."""
@@ -211,7 +210,7 @@ class TestCLIFutureImplementation:
 
             assert result == 0
             mock_discovery.assert_called_once_with("test_module")
-            mock_discover.assert_called_once_with(mock_dut)
+            mock_discover.assert_called_once_with(mock_dut, max_depth=50, include_constants=False)
 
     @patch('copra.core._run_discovery_simulation')
     def test_future_cli_success_stdout(self, mock_discovery: Mock) -> None:
@@ -228,7 +227,7 @@ class TestCLIFutureImplementation:
 
             assert result == 0
             mock_discovery.assert_called_once_with("test_module")
-            mock_discover.assert_called_once_with(mock_dut)
+            mock_discover.assert_called_once_with(mock_dut, max_depth=50, include_constants=False)
 
     @patch('copra.core._run_discovery_simulation')
     def test_future_cli_output_directory_creation(
