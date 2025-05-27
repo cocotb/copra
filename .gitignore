@@ -36,3 +36,7 @@ sim_build/
 .idea/
 .DS_Store
 Thumbs.db
+
+
+# generated stubs
+*.pyi
