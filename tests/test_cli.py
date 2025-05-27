@@ -210,7 +210,13 @@ class TestCLIFutureImplementation:
 
             assert result == 0
             mock_discovery.assert_called_once_with("test_module")
-            mock_discover.assert_called_once_with(mock_dut, max_depth=50, include_constants=False)
+            mock_discover.assert_called_once_with(
+                mock_dut, 
+                max_depth=50, 
+                include_constants=False,
+                performance_mode=False,
+                array_detection=True
+            )
 
     @patch('copra.core._run_discovery_simulation')
     def test_future_cli_success_stdout(self, mock_discovery: Mock) -> None:
@@ -227,7 +233,13 @@ class TestCLIFutureImplementation:
 
             assert result == 0
             mock_discovery.assert_called_once_with("test_module")
-            mock_discover.assert_called_once_with(mock_dut, max_depth=50, include_constants=False)
+            mock_discover.assert_called_once_with(
+                mock_dut, 
+                max_depth=50, 
+                include_constants=False,
+                performance_mode=False,
+                array_detection=True
+            )
 
     @patch('copra.core._run_discovery_simulation')
     def test_future_cli_output_directory_creation(

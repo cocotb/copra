@@ -42,6 +42,7 @@ dev = [
 
 [project.scripts]
 copra = "copra.core:main"
+cocotb-stubgen = "copra.core:main"
 
 [tool.ruff]
 line-length = 100
