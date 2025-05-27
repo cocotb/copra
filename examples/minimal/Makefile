@@ -9,7 +9,7 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 
 # Generate stubs with copra
 generate-stubs:
-	copra $(TOPLEVEL) -o dut.pyi
+	python generate_stubs.py
 
 .PHONY: generate-stubs
 

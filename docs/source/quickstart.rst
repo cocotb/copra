@@ -73,17 +73,17 @@ Run the stub generator:
 
     copra test_dff.py -o dut.pyi
 
-This will generate a `dut.pyi` file with type information for your DUT.
+This will generate a :file:`dut.pyi` file with type information for your DUT.
 
 Using the Generated Stubs
-------------------------
+-------------------------
 
 To use the generated stubs in your IDE:
 
-1. Place the `.pyi` file in your project directory
+1. Place the :file:`.pyi` file in your project directory
 2. Configure your IDE to use the stubs (most IDEs do this automatically)
 
-For example, in VS Code, add this to your `settings.json`:
+For example, in VS Code, add this to your :file:`settings.json`:
 
 .. code-block:: json
 

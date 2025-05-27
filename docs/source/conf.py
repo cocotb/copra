@@ -1,12 +1,11 @@
-# Configuration file for the Sphinx documentation builder.
-#
-# This file only contains a selection of the most common options. For a full
-# list see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
+"""Configuration file for the Sphinx documentation builder.
+
+This file contains configuration options for building the copra documentation
+using Sphinx. It sets up the project information, extensions, and theme options.
+"""
 
 # -- Path setup --------------------------------------------------------------
 
-import os
 import sys
 from datetime import datetime
 from pathlib import Path

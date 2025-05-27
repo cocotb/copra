@@ -11,38 +11,40 @@ from cocotb.triggers import RisingEdge
 @cocotb.test()
 async def test_dff(dut):
     """Test a simple D flip-flop.
-    
+
     Args:
+    ----
         dut: The DUT (Design Under Test) handle.
+
     """
     # Create a 10ns period clock
     clock = Clock(dut.clk, 10, units="ns")
-    
+
     # Start the clock
     cocotb.start_soon(clock.start())
-    
+
     # Reset the DUT
     dut.rst_n.value = 0
     dut.d.value = 0
-    
+
     # Wait for two clock cycles
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
-    
+
     # Release reset
     dut.rst_n.value = 1
-    
+
     # Test data sequence
     test_values = [0, 1, 0, 1, 1, 0]
-    
+
     # Apply test values and check outputs
     for i, val in enumerate(test_values, 1):
         # Set input
         dut.d.value = val
-        
+
         # Wait for the next clock edge
         await RisingEdge(dut.clk)
-        
+
         # Check output (should be previous input)
         expected = test_values[i-2] if i > 1 else 0
         assert dut.q.value == expected, \

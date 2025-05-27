@@ -9,6 +9,12 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 
 # Generate stubs with copra
 generate-stubs:
-	copra $(TOPLEVEL) -o dut.pyi
+	python generate_stubs.py
 
 .PHONY: generate-stubs
+
+# Run tests
+test: generate-stubs
+	make SIM=icarus TOPLEVEL_LANG=$(TOPLEVEL_LANG) TOPLEVEL=$(TOPLEVEL) MODULE=$(MODULE)
+
+.PHONY: test

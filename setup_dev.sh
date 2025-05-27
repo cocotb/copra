@@ -7,7 +7,6 @@ cd "$SCRIPT_DIR"
 # Setup development environment for copra
 echo "Installing dependencies..."
 pip install -e .
-pip install -r requirements.txt
 
 # Install pre-commit hooks
 echo "Installing pre-commit hooks..."
@@ -18,25 +17,15 @@ mkdir -p examples/minimal/sim_build
 
 # Run tests
 echo "Running tests..."
-python -m pytest tests/
+nox -s test
 
 # Generate documentation
 echo "Building documentation..."
-if [ -d "docs" ]; then
-    cd docs
-    if [ ! -f "source/conf.py" ]; then
-        echo "Documentation not set up. Skipping..."
-    else
-        make html
-    fi
-    cd ..
-else
-    echo "Docs directory not found. Skipping..."
-fi
+nox -s docs
 
 # Run the example
 echo "Running example..."
-python examples/run_example.py
+nox -s examples
 
 # Show generated stubs
 if [ -f "examples/minimal/dut.pyi" ]; then
