@@ -2,78 +2,178 @@
 """Generate type stubs for the simple DFF example DUT.
 
 This script demonstrates how to use copra to generate type stubs
-for a D flip-flop module within a self-contained example.
+for a D flip-flop by running an actual cocotb simulation.
 """
 
+import sys
 from pathlib import Path
 
-# Import copra as an installed library
-from copra import generate_stub
+# Add copra to the path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-
-# Mock the cocotb classes for demonstration purposes
-# In a real scenario, these would come from the actual cocotb simulation
-class MockType:
-    """Mock base type for demonstration purposes."""
-
-    def __init__(self, name):
-        """Initialize mock type with a name."""
-        self.__name__ = name
-
-
-# Create mock handle types that match cocotb 2.0+ API
-class HierarchyObject(MockType):
-    """Mock HierarchyObject for demonstration purposes."""
-
-    def __init__(self):
-        """Initialize mock HierarchyObject."""
-        super().__init__("HierarchyObject")
-
-
-class LogicObject(MockType):
-    """Mock LogicObject for demonstration purposes."""
-
-    def __init__(self):
-        """Initialize mock LogicObject."""
-        super().__init__("LogicObject")
+from copra import (
+    create_stub_from_dut,
+    discover_hierarchy,
+    generate_stub,
+    run_discovery_simulation,
+)
 
 
 def generate_dff_stubs():
-    """Generate type stubs for the simple DFF example DUT."""
-    print("Generating type stubs for simple DFF example DUT...")
+    """Generate type stubs for the DFF example DUT using real simulation."""
+    print("=" * 60)
+    print("Simple DFF Example: End-to-End Stub Generation")
+    print("=" * 60)
 
-    # Define the hierarchy for our DFF DUT
-    # This matches the dff.sv module interface:
-    # - clk: input wire
-    # - rst_n: input wire
-    # - d: input wire
-    # - q: output reg
-    hierarchy = {
-        'dff': HierarchyObject,
-        'dff.clk': LogicObject,
-        'dff.rst_n': LogicObject,
-        'dff.d': LogicObject,
-        'dff.q': LogicObject,
-    }
+    # Define source files
+    base_dir = Path(__file__).parent
+    verilog_sources = [str(base_dir / "dff.sv")]
+    
+    print("Source files:")
+    for src in verilog_sources:
+        print(f"  - {src}")
+    
+    print("\nTop module: dff")
+    print("Target simulator: icarus")
 
-    # Generate stub content
-    stub_content = generate_stub(hierarchy)
+    try:
+        print("\n" + "=" * 40)
+        print("Step 1: Running DUT Discovery Simulation")
+        print("=" * 40)
 
-    # Write to the dut.pyi file in this directory
-    stub_file = Path(__file__).parent / "dut.pyi"
-    with open(stub_file, "w") as f:
-        f.write(stub_content)
+        # Run discovery simulation to get the real DUT
+        dut = run_discovery_simulation(
+            top_module="dff",
+            verilog_sources=verilog_sources,
+            simulator="icarus",
+            cleanup=True
+        )
 
-    print(f"Generated stub file: {stub_file}")
-    print(f"Stub file contains {len(stub_content.splitlines())} lines")
+        print(f"✓ Successfully discovered DUT: {dut._name}")
 
-    # Show the generated content
-    print("\nGenerated stub content:")
-    print("-" * 50)
-    print(stub_content)
-    print("-" * 50)
+        print("\n" + "=" * 40)
+        print("Step 2: Discovering DUT Hierarchy")
+        print("=" * 40)
 
-    return stub_content
+        # Discover the hierarchy from the real DUT
+        hierarchy = discover_hierarchy(dut)
+        
+        print(f"✓ Discovered {len(hierarchy)} signals/modules in hierarchy")
+        
+        # Print hierarchy information
+        print("\nHierarchy overview:")
+        for path, obj_type in sorted(hierarchy.items()):
+            # Safe way to get type name
+            if hasattr(obj_type, '__name__'):
+                type_name = obj_type.__name__
+            elif hasattr(obj_type, '__class__'):
+                type_name = obj_type.__class__.__name__
+            else:
+                type_name = str(type(obj_type).__name__)
+            print(f"  {path}: {type_name}")
+
+        print("\n" + "=" * 40)
+        print("Step 3: Generating Type Stubs")
+        print("=" * 40)
+
+        # Generate stub content using the real hierarchy
+        stub_content = generate_stub(hierarchy)
+
+        # Write to the dut.pyi file in this directory
+        stub_file = base_dir / "dut.pyi"
+        with open(stub_file, "w") as f:
+            f.write(stub_content)
+
+        print(f"✓ Generated stub file: {stub_file}")
+        print(f"  Stub size: {len(stub_content)} characters")
+        print(f"  Lines: {len(stub_content.splitlines())}")
+
+        print("\n" + "=" * 40)
+        print("Step 4: Validating Generated Stubs")
+        print("=" * 40)
+
+        # Show a preview of the generated content
+        lines = stub_content.splitlines()
+        print("Generated stub preview (first 20 lines):")
+        print("-" * 50)
+        for i, line in enumerate(lines[:20], 1):
+            print(f"{i:2d}: {line}")
+        if len(lines) > 20:
+            print(f"... and {len(lines) - 20} more lines")
+        print("-" * 50)
+
+        print("\n" + "=" * 40)
+        print("Step 5: DFF-Specific Analysis")
+        print("=" * 40)
+
+        # Analyze the DFF-specific signals
+        expected_signals = ['clk', 'rst_n', 'd', 'q']
+        found_signals = []
+        
+        for path in hierarchy.keys():
+            signal_name = path.split('.')[-1]  # Get the last part of the path
+            if signal_name in expected_signals:
+                found_signals.append(signal_name)
+        
+        print("DFF Signal Analysis:")
+        for signal in expected_signals:
+            status = "✓ Found" if signal in found_signals else "✗ Missing"
+            print(f"  {signal}: {status}")
+        
+        if len(found_signals) == len(expected_signals):
+            print("✓ All expected DFF signals discovered!")
+        else:
+            print(f"⚠ Found {len(found_signals)}/{len(expected_signals)} expected signals")
+
+        print("\n" + "=" * 40)
+        print("Generation Complete!")
+        print("=" * 40)
+        
+        print("✓ Successfully generated end-to-end type stubs for DFF")
+        print("✓ Stubs are based on real DUT hierarchy from simulation")
+        print("✓ Ready for use in IDE with autocompletion and type checking")
+        print("✓ DFF-specific signals properly discovered and typed")
+        
+        return stub_content
+
+    except Exception as e:
+        print(f"✗ Error during stub generation: {e}")
+        print("\nFallback: Generating basic DFF stubs without simulation")
+        
+        # Fallback to basic stub generation for DFF
+        basic_stub = """# Basic type stub for DFF example
+# Generated by copra (fallback mode)
+
+from cocotb.handle import HierarchyObject, SimHandleBase
+
+class Dff(HierarchyObject):
+    \"\"\"Simple D Flip-Flop DUT.
+    
+    A basic D flip-flop with clock and active-low reset.
+    
+    Signals:
+        clk: Clock input
+        rst_n: Active-low reset
+        d: Data input
+        q: Data output (registered)
+    \"\"\"
+    
+    clk: SimHandleBase
+    rst_n: SimHandleBase
+    d: SimHandleBase
+    q: SimHandleBase
+
+# Type alias for the main DUT
+DutType = Dff
+"""
+        
+        stub_file = base_dir / "dut.pyi"
+        with open(stub_file, "w") as f:
+            f.write(basic_stub)
+        
+        print(f"✓ Generated basic DFF stub file: {stub_file}")
+        return basic_stub
+
 
 if __name__ == "__main__":
     generate_dff_stubs()

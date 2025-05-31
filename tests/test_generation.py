@@ -85,67 +85,64 @@ class TestStubTemplate:
         """Test header template rendering."""
         template = StubTemplate("test")
 
-        with patch('copra._version.__version__', '1.0.0'):
+        with patch("copra.generation.__version__", "1.0.0"):
             header = template.render_header(
-                module_name='test_module',
-                imports='from test import TestClass'
+                module_name="test_module", imports="from test import TestClass"
             )
 
-            assert 'copra v1.0.0' in header
-            assert 'test_module' in header
-            assert 'from test import TestClass' in header
-            assert 'Template: test' in header
+            assert "copra v1.0.0" in header
+            assert "test_module" in header
+            assert "from test import TestClass" in header
+            assert "Template: test" in header
 
     def test_class_template_rendering(self):
         """Test class template rendering."""
         template = StubTemplate()
 
         class_def = template.render_class(
-            class_name='TestClass',
+            class_name="TestClass",
             docstring='    """Test class docstring."""',
-            attributes='    signal1: SimHandleBase\n    signal2: SimHandleBase'
+            attributes="    signal1: SimHandleBase\n    signal2: SimHandleBase",
         )
 
-        assert 'class TestClass(HierarchyObject):' in class_def
-        assert 'Test class docstring' in class_def
-        assert 'signal1: SimHandleBase' in class_def
-        assert 'signal2: SimHandleBase' in class_def
+        assert "class TestClass(HierarchyObject):" in class_def
+        assert "Test class docstring" in class_def
+        assert "signal1: SimHandleBase" in class_def
+        assert "signal2: SimHandleBase" in class_def
 
     def test_signal_template_rendering(self):
         """Test signal template rendering."""
         template = StubTemplate()
 
         signal_def = template.render_signal(
-            name='test_signal',
-            type_annotation='SimHandleBase',
-            comment='Test signal comment'
+            name="test_signal", type_annotation="SimHandleBase", comment="Test signal comment"
         )
 
-        assert 'test_signal: SimHandleBase' in signal_def
-        assert 'Test signal comment' in signal_def
+        assert "test_signal: SimHandleBase" in signal_def
+        assert "Test signal comment" in signal_def
 
     def test_array_template_rendering(self):
         """Test array template rendering."""
         template = StubTemplate()
 
         array_def = template.render_array(
-            class_name='TestArray',
-            element_type='SimHandleBase',
-            base_name='test_array',
+            class_name="TestArray",
+            element_type="SimHandleBase",
+            base_name="test_array",
             size=4,
             min_index=0,
-            max_index=3
+            max_index=3,
         )
 
-        assert 'class TestArray(Sequence[SimHandleBase]):' in array_def
-        assert 'test_array with 4 elements' in array_def
-        assert '[0:3]' in array_def
-        assert '__getitem__' in array_def
-        assert '__len__' in array_def
-        assert '__iter__' in array_def
-        assert '__contains__' in array_def
-        assert 'min_index' in array_def
-        assert 'max_index' in array_def
+        assert "class TestArray(Sequence[SimHandleBase]):" in array_def
+        assert "test_array with 4 elements" in array_def
+        assert "[0:3]" in array_def
+        assert "__getitem__" in array_def
+        assert "__len__" in array_def
+        assert "__iter__" in array_def
+        assert "__contains__" in array_def
+        assert "min_index" in array_def
+        assert "max_index" in array_def
 
 
 class TestDocumentationGenerator:
@@ -191,7 +188,7 @@ class TestDocumentationGenerator:
             "dut.cpu.instruction": Mock,
             "dut.memory": Mock,
             "dut.memory.addr": Mock,
-            "dut.memory.data": Mock
+            "dut.memory.data": Mock,
         }
 
         # Mock the type objects
@@ -212,11 +209,7 @@ class TestDocumentationGenerator:
         """Test RST documentation generation."""
         generator = DocumentationGenerator("rst")
 
-        hierarchy = {
-            "dut": Mock,
-            "dut.signal1": Mock,
-            "dut.signal2": Mock
-        }
+        hierarchy = {"dut": Mock, "dut.signal1": Mock, "dut.signal2": Mock}
 
         # Mock the type objects
         for obj_type in hierarchy.values():
@@ -235,11 +228,7 @@ class TestDocumentationGenerator:
         """Test HTML documentation generation."""
         generator = DocumentationGenerator("html")
 
-        hierarchy = {
-            "dut": Mock,
-            "dut.signal1": Mock,
-            "dut.signal2": Mock
-        }
+        hierarchy = {"dut": Mock, "dut.signal1": Mock, "dut.signal2": Mock}
 
         # Mock the type objects
         for obj_type in hierarchy.values():
@@ -248,7 +237,7 @@ class TestDocumentationGenerator:
         docs = generator.generate_interface_documentation(hierarchy)
 
         assert "<!DOCTYPE html>" in docs
-        assert "<html lang=\"en\">" in docs
+        assert '<html lang="en">' in docs
         assert "<title>DUT Interface Documentation</title>" in docs
         assert "<h1>DUT Interface Documentation</h1>" in docs
         assert "<table>" in docs
@@ -262,19 +251,16 @@ class TestDocumentationGenerator:
         """Test documentation generation with file output."""
         generator = DocumentationGenerator("markdown")
 
-        hierarchy = {
-            "dut": Mock,
-            "dut.signal": Mock
-        }
+        hierarchy = {"dut": Mock, "dut.signal": Mock}
 
         # Mock the type objects
         for obj_type in hierarchy.values():
             obj_type.__name__ = "SimHandleBase"
 
-        with patch('builtins.open', mock_open()) as mock_file:
+        with patch("builtins.open", mock_open()) as mock_file:
             docs = generator.generate_interface_documentation(hierarchy, "test_docs.md")
 
-            mock_file.assert_called_once_with("test_docs.md", 'w', encoding='utf-8')
+            mock_file.assert_called_once_with("test_docs.md", "w", encoding="utf-8")
             mock_file().write.assert_called()
             assert isinstance(docs, str)
 
@@ -289,7 +275,7 @@ class TestEnhancedTestbenchGeneration:
             "dut.clk": Mock,
             "dut.rst_n": Mock,
             "dut.data_in": Mock,
-            "dut.data_out": Mock
+            "dut.data_out": Mock,
         }
 
         template = generate_testbench_template(hierarchy)  # No output file = simple template
@@ -306,12 +292,7 @@ class TestEnhancedTestbenchGeneration:
 
     def test_testbench_with_clock_signals(self):
         """Test testbench generation with clock signal detection."""
-        hierarchy = {
-            "dut": Mock,
-            "dut.clock": Mock,
-            "dut.clk_div": Mock,
-            "dut.data": Mock
-        }
+        hierarchy = {"dut": Mock, "dut.clock": Mock, "dut.clk_div": Mock, "dut.data": Mock}
 
         template = generate_testbench_template(hierarchy)
 
@@ -322,12 +303,7 @@ class TestEnhancedTestbenchGeneration:
 
     def test_testbench_with_reset_signals(self):
         """Test testbench generation with reset signal detection."""
-        hierarchy = {
-            "dut": Mock,
-            "dut.reset": Mock,
-            "dut.rst_async": Mock,
-            "dut.data": Mock
-        }
+        hierarchy = {"dut": Mock, "dut.reset": Mock, "dut.rst_async": Mock, "dut.data": Mock}
 
         template = generate_testbench_template(hierarchy)
 
@@ -347,7 +323,7 @@ class TestEnhancedTestbenchGeneration:
             "dut.signal5": Mock,
             "dut.signal6": Mock,
             "dut.signal7": Mock,
-            "dut.signal8": Mock
+            "dut.signal8": Mock,
         }
 
         template = generate_testbench_template(hierarchy)
@@ -358,10 +334,7 @@ class TestEnhancedTestbenchGeneration:
 
     def test_testbench_with_custom_test_name(self):
         """Test testbench generation with custom test name."""
-        hierarchy = {
-            "dut": Mock,
-            "dut.clk": Mock
-        }
+        hierarchy = {"dut": Mock, "dut.clk": Mock}
 
         # For simple template, test name is always test_dut
         template = generate_testbench_template(hierarchy)
@@ -385,7 +358,7 @@ class TestGenerateTestbenchTemplate:
 
     def test_generate_testbench_template_basic(self, mock_cpu_dut):
         """Test basic testbench template generation."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             template_file = f.name
 
         try:
@@ -505,7 +478,7 @@ class TestGenerateInterfaceDocumentation:
 
     def test_generate_interface_documentation_basic(self, mock_cpu_dut):
         """Test basic interface documentation generation."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
             doc_file = f.name
 
         try:
@@ -604,7 +577,7 @@ class TestGenerationIntegration:
             "dut.cpu.rst_n": Mock,
             "dut.memory": Mock,
             "dut.memory.addr": Mock,
-            "dut.memory.data": Mock
+            "dut.memory.data": Mock,
         }
 
         # Mock the type objects
@@ -633,11 +606,7 @@ class TestGenerationIntegration:
 
     def test_multiple_format_documentation(self):
         """Test generating documentation in multiple formats."""
-        hierarchy = {
-            "dut": Mock,
-            "dut.signal1": Mock,
-            "dut.signal2": Mock
-        }
+        hierarchy = {"dut": Mock, "dut.signal1": Mock, "dut.signal2": Mock}
 
         # Mock the type objects
         for obj_type in hierarchy.values():

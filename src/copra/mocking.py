@@ -7,7 +7,7 @@
 import ast
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 
 class MockSignal:
@@ -197,10 +197,7 @@ class MockSignal:
         self.toggle()
         # Note: In real implementation, this would use cocotb timing
         # Here we just record the pulse in history
-        self._value_history.record_change(
-            self.value, original_value,
-            time.time() + duration
-        )
+        self._value_history.record_change(self.value, original_value, time.time() + duration)
         self.value = original_value
 
     def __str__(self) -> str:
@@ -209,8 +206,10 @@ class MockSignal:
 
     def __repr__(self) -> str:
         """Detailed string representation."""
-        return (f"MockSignal(name='{self._name}', handle_type='{self._handle_type}', "
-                f"value={self._value}, width={self._width}, changes={self.get_change_count()})")
+        return (
+            f"MockSignal(name='{self._name}', handle_type='{self._handle_type}', "
+            f"value={self._value}, width={self._width}, changes={self.get_change_count()})"
+        )
 
 
 class MockModule:
@@ -233,8 +232,9 @@ class MockModule:
         self._module_type = module_type
         self._children: Dict[str, Any] = {}
 
-    def add_signal(self, name: str, signal_type: str = "LogicObject",
-                   width: int = 32) -> MockSignal:
+    def add_signal(
+        self, name: str, signal_type: str = "LogicObject", width: int = 32
+    ) -> MockSignal:
         """Add a signal to this module.
 
         Args:
@@ -271,18 +271,18 @@ class MockModule:
 
     def __getattr__(self, name: str) -> Any:
         """Get child attribute."""
-        if name.startswith('_'):
+        if name.startswith("_"):
             # Avoid infinite recursion for private attributes
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
         if name not in self._children:
             # Create a mock signal for unknown children
-            self._children[name] = MockSignal(name, 'LogicObject')
+            self._children[name] = MockSignal(name, "LogicObject")
         return self._children[name]
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Set attribute value."""
-        if name.startswith('_'):
+        if name.startswith("_"):
             super().__setattr__(name, value)
         else:
             self._children[name] = value
@@ -334,7 +334,7 @@ class MockDUT:
             return
 
         try:
-            with open(self.stub_file, encoding='utf-8') as f:
+            with open(self.stub_file, encoding="utf-8") as f:
                 content = f.read()
 
             # Parse the AST to extract class definitions
@@ -354,13 +354,14 @@ class MockDUT:
                 attr_name = node.target.id
                 if isinstance(node.annotation, ast.Name):
                     type_name = node.annotation.id
-                    if type_name in ('LogicObject', 'LogicArrayObject', 'ValueObjectBase'):
+                    if type_name in ("LogicObject", "LogicArrayObject", "ValueObjectBase"):
                         self._signals[attr_name] = MockSignal(attr_name, type_name)
                     else:
                         self._sub_modules[attr_name] = MockModule(attr_name, type_name)
 
-    def add_signal(self, name: str, signal_type: str = "LogicObject",
-                   width: int = 32) -> MockSignal:
+    def add_signal(
+        self, name: str, signal_type: str = "LogicObject", width: int = 32
+    ) -> MockSignal:
         """Add a signal to the mock DUT.
 
         Args:
@@ -397,7 +398,7 @@ class MockDUT:
 
     def __getattr__(self, name: str) -> Any:
         """Get attribute by name, returning mock objects."""
-        if name.startswith('_'):
+        if name.startswith("_"):
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
         if name in self._signals:
@@ -406,7 +407,7 @@ class MockDUT:
             return self._sub_modules[name]
         else:
             # Return a generic mock signal for unknown attributes
-            signal = MockSignal(name, 'LogicObject')
+            signal = MockSignal(name, "LogicObject")
             self._signals[name] = signal
             return signal
 
@@ -459,26 +460,26 @@ def create_mock_dut_from_hierarchy(hierarchy: Dict[str, type], name: str = "mock
     # First, identify all module paths (paths that have children)
     module_paths = set()
     for path in hierarchy.keys():
-        parts = path.split('.')
+        parts = path.split(".")
         # Add all parent paths as modules (except the root 'dut')
         for i in range(1, len(parts)):
-            parent_path = '.'.join(parts[:i])
+            parent_path = ".".join(parts[:i])
             module_paths.add(parent_path)
 
     # Also check if any path is a prefix of another (indicating it's a module)
     all_paths = list(hierarchy.keys())
     for path in all_paths:
         for other_path in all_paths:
-            if other_path != path and other_path.startswith(path + '.'):
+            if other_path != path and other_path.startswith(path + "."):
                 module_paths.add(path)
 
     # Process hierarchy to create mock structure
     for path, obj_type in hierarchy.items():
-        parts = path.split('.')
+        parts = path.split(".")
 
         if len(parts) == 1:
             # Top-level item (skip 'dut' itself as it's the mock_dut)
-            if path == name or path == 'dut':
+            if path == name or path == "dut":
                 continue
             elif path in module_paths:
                 # This is a module
@@ -491,7 +492,7 @@ def create_mock_dut_from_hierarchy(hierarchy: Dict[str, type], name: str = "mock
             current: Union[MockDUT, MockModule] = mock_dut
 
             # Skip the first part if it's 'dut' (the root)
-            path_parts = parts[1:] if parts[0] == 'dut' else parts
+            path_parts = parts[1:] if parts[0] == "dut" else parts
 
             for i, part in enumerate(path_parts[:-1]):
                 # Handle both MockDUT and MockModule objects
@@ -528,11 +529,14 @@ def create_mock_dut(hierarchy: Dict[str, type], name: str = "mock_dut") -> MockD
     This is an alias for create_mock_dut_from_hierarchy for backward compatibility.
 
     Args:
+    ----
         hierarchy: Dictionary mapping paths to types.
         name: Name for the mock DUT.
 
     Returns:
+    -------
         Mock DUT instance.
+
     """
     return create_mock_dut_from_hierarchy(hierarchy, name)
 
@@ -551,7 +555,9 @@ class SignalValueHistory:
         self.max_history = max_history
         self.history: List[Dict[str, Any]] = []
 
-    def record_change(self, old_value: int, new_value: int, timestamp: float = None) -> None:
+    def record_change(
+        self, old_value: int, new_value: int, timestamp: Optional[float] = None
+    ) -> None:
         """Record a value change.
 
         Args:
@@ -565,10 +571,10 @@ class SignalValueHistory:
             timestamp = time.time()
 
         change_record = {
-            'timestamp': timestamp,
-            'old_value': old_value,
-            'new_value': new_value,
-            'change_count': len(self.history) + 1
+            "timestamp": timestamp,
+            "old_value": old_value,
+            "new_value": new_value,
+            "change_count": len(self.history) + 1,
         }
 
         self.history.append(change_record)
@@ -599,7 +605,7 @@ class SignalValueHistory:
         """Get total number of value changes recorded."""
         return len(self.history)
 
-    def get_last_change(self) -> Dict[str, Any]:
+    def get_last_change(self) -> Optional[Dict[str, Any]]:
         """Get the most recent value change.
 
         Returns
@@ -636,8 +642,9 @@ class BusFunctionalModel:
         self.transactions: List[Dict[str, Any]] = []
         self.is_active = False
 
-    def add_signal(self, name: str, signal_or_width: Union[MockSignal, int] = 32,
-                   initial_value: int = 0) -> MockSignal:
+    def add_signal(
+        self, name: str, signal_or_width: Union[MockSignal, int] = 32, initial_value: int = 0
+    ) -> MockSignal:
         """Add a signal to the bus functional model.
 
         Args:
@@ -663,7 +670,7 @@ class BusFunctionalModel:
             self.signals[name] = signal
         return signal
 
-    def start_transaction(self, transaction_type: str, **kwargs) -> Dict[str, Any]:
+    def start_transaction(self, transaction_type: str, **kwargs: Any) -> Dict[str, Any]:
         """Start a new bus transaction.
 
         Args:
@@ -677,11 +684,11 @@ class BusFunctionalModel:
 
         """
         transaction = {
-            'id': len(self.transactions),
-            'type': transaction_type,
-            'start_time': time.time(),
-            'status': 'active',
-            'parameters': kwargs
+            "id": len(self.transactions),
+            "type": transaction_type,
+            "start_time": time.time(),
+            "status": "active",
+            "parameters": kwargs,
         }
         self.transactions.append(transaction)
         return transaction
@@ -697,10 +704,10 @@ class BusFunctionalModel:
         """
         if transaction_id < len(self.transactions):
             transaction = self.transactions[transaction_id]
-            transaction['status'] = 'completed'
-            transaction['end_time'] = time.time()
-            transaction['duration'] = transaction['end_time'] - transaction['start_time']
-            transaction['result'] = result
+            transaction["status"] = "completed"
+            transaction["end_time"] = time.time()
+            transaction["duration"] = transaction["end_time"] - transaction["start_time"]
+            transaction["result"] = result
 
     def get_transaction_history(self) -> List[Dict[str, Any]]:
         """Get all transaction history."""

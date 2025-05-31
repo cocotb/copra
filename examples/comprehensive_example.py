@@ -59,44 +59,52 @@ class ProcessorDUT:
 
     def _create_clock_and_reset(self):
         """Create clock and reset signals."""
-        self._sub_handles.update({
-            "clk": MockSignal("clk", "LogicObject"),
-            "rst_n": MockSignal("rst_n", "LogicObject"),
-            "clk_en": MockSignal("clk_en", "LogicObject"),
-        })
+        self._sub_handles.update(
+            {
+                "clk": MockSignal("clk", "LogicObject"),
+                "rst_n": MockSignal("rst_n", "LogicObject"),
+                "clk_en": MockSignal("clk_en", "LogicObject"),
+            }
+        )
 
     def _create_instruction_interface(self):
         """Create instruction fetch interface."""
-        self._sub_handles.update({
-            "instr_addr": MockSignal("instr_addr", "LogicArrayObject", 32),
-            "instr_data": MockSignal("instr_data", "LogicArrayObject", 32),
-            "instr_valid": MockSignal("instr_valid", "LogicObject"),
-            "instr_ready": MockSignal("instr_ready", "LogicObject"),
-            "instr_error": MockSignal("instr_error", "LogicObject"),
-        })
+        self._sub_handles.update(
+            {
+                "instr_addr": MockSignal("instr_addr", "LogicArrayObject", 32),
+                "instr_data": MockSignal("instr_data", "LogicArrayObject", 32),
+                "instr_valid": MockSignal("instr_valid", "LogicObject"),
+                "instr_ready": MockSignal("instr_ready", "LogicObject"),
+                "instr_error": MockSignal("instr_error", "LogicObject"),
+            }
+        )
 
     def _create_data_interface(self):
         """Create data memory interface."""
-        self._sub_handles.update({
-            "data_addr": MockSignal("data_addr", "LogicArrayObject", 32),
-            "data_wdata": MockSignal("data_wdata", "LogicArrayObject", 32),
-            "data_rdata": MockSignal("data_rdata", "LogicArrayObject", 32),
-            "data_we": MockSignal("data_we", "LogicObject"),
-            "data_be": MockSignal("data_be", "LogicArrayObject", 4),
-            "data_valid": MockSignal("data_valid", "LogicObject"),
-            "data_ready": MockSignal("data_ready", "LogicObject"),
-        })
+        self._sub_handles.update(
+            {
+                "data_addr": MockSignal("data_addr", "LogicArrayObject", 32),
+                "data_wdata": MockSignal("data_wdata", "LogicArrayObject", 32),
+                "data_rdata": MockSignal("data_rdata", "LogicArrayObject", 32),
+                "data_we": MockSignal("data_we", "LogicObject"),
+                "data_be": MockSignal("data_be", "LogicArrayObject", 4),
+                "data_valid": MockSignal("data_valid", "LogicObject"),
+                "data_ready": MockSignal("data_ready", "LogicObject"),
+            }
+        )
 
     def _create_control_interface(self):
         """Create control and status interface."""
-        self._sub_handles.update({
-            "interrupt": MockSignal("interrupt", "LogicArrayObject", 8),
-            "exception": MockSignal("exception", "LogicObject"),
-            "halt": MockSignal("halt", "LogicObject"),
-            "sleep": MockSignal("sleep", "LogicObject"),
-            "pc": MockSignal("pc", "LogicArrayObject", 32),
-            "status": MockSignal("status", "LogicArrayObject", 32),
-        })
+        self._sub_handles.update(
+            {
+                "interrupt": MockSignal("interrupt", "LogicArrayObject", 8),
+                "exception": MockSignal("exception", "LogicObject"),
+                "halt": MockSignal("halt", "LogicObject"),
+                "sleep": MockSignal("sleep", "LogicObject"),
+                "pc": MockSignal("pc", "LogicArrayObject", 32),
+                "status": MockSignal("status", "LogicArrayObject", 32),
+            }
+        )
 
     def _create_debug_interface(self):
         """Create debug interface."""
@@ -126,10 +134,12 @@ class ProcessorDUT:
         dcache.add_signal("flush", "LogicObject")
         dcache.add_signal("writeback", "LogicObject")
 
-        self._sub_handles.update({
-            "icache": icache,
-            "dcache": dcache,
-        })
+        self._sub_handles.update(
+            {
+                "icache": icache,
+                "dcache": dcache,
+            }
+        )
 
     def _discover_all(self):
         """Mock discover_all method."""
@@ -166,6 +176,7 @@ class CopraDemonstration:
         except Exception as e:
             print(f"Error during demonstration: {e}")
             import traceback
+
             traceback.print_exc()
 
     def demonstrate_hierarchy_discovery(self):
@@ -181,6 +192,7 @@ class CopraDemonstration:
 
         # Analyze hierarchy complexity
         from copra.analysis import analyze_hierarchy_complexity
+
         complexity = analyze_hierarchy_complexity(self.dut)
 
         print("\nHierarchy Complexity Analysis:")
@@ -235,7 +247,7 @@ class CopraDemonstration:
         array_stub = generate_stub(array_hierarchy)
 
         array_stub_file = self.output_dir / "array_example.pyi"
-        with open(array_stub_file, 'w') as f:
+        with open(array_stub_file, "w") as f:
             f.write(array_stub)
 
         print(f"Generated array-enhanced stub: {array_stub_file}")
@@ -286,13 +298,20 @@ class CopraDemonstration:
         print(f"  Total signals: {coverage['total_signals']}")
         print(f"  Covered signals: {coverage['covered_signals']}")
 
-        if coverage['missing_signals']:
+        if coverage["missing_signals"]:
             print(f"  Missing signals: {coverage['missing_signals'][:5]}...")
 
         # Interface validation
         expected_signals = [
-            "clk", "rst_n", "instr_addr", "instr_data", "data_addr",
-            "data_wdata", "data_rdata", "pc", "status"
+            "clk",
+            "rst_n",
+            "instr_addr",
+            "instr_data",
+            "data_addr",
+            "data_wdata",
+            "data_rdata",
+            "pc",
+            "status",
         ]
 
         validation = validate_dut_interface(self.dut, expected_signals)
@@ -315,6 +334,7 @@ class CopraDemonstration:
 
         # Generate interface documentation
         from copra.generation import generate_interface_documentation
+
         doc_file = self.output_dir / "riscv_cpu_interface.md"
         documentation = generate_interface_documentation(self.dut, str(doc_file))
 
@@ -361,8 +381,10 @@ class CopraDemonstration:
             size = file_path.stat().st_size
             print(f"  {file_path.name:<30} ({size:,} bytes)")
 
-        print(f"\nTotal output directory size: "
-              f"{sum(f.stat().st_size for f in self.output_dir.glob('*')):,} bytes")
+        print(
+            f"\nTotal output directory size: "
+            f"{sum(f.stat().st_size for f in self.output_dir.glob('*')):,} bytes"
+        )
 
         print("\nCopra Features Demonstrated:")
         features = [
@@ -373,7 +395,7 @@ class CopraDemonstration:
             "✓ Testbench template generation",
             "✓ Interface documentation generation",
             "✓ Seamless cocotb workflow integration",
-            "✓ Professional-grade type safety and IDE support"
+            "✓ Professional-grade type safety and IDE support",
         ]
 
         for feature in features:

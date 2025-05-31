@@ -12,17 +12,9 @@ import ast
 import re
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Optional, Set
 
-# Conditional import for cocotb
-try:
-    from cocotb.handle import HierarchyObject
-    COCOTB_AVAILABLE = True
-except ImportError:
-    # Create a dummy class for type hints when cocotb is not available
-    class HierarchyObject:
-        pass
-    COCOTB_AVAILABLE = False
+from cocotb.handle import HierarchyObject  # type: ignore[import-untyped]
 
 from .core import discover_hierarchy
 
@@ -61,24 +53,24 @@ def analyze_stub_coverage(dut: HierarchyObject, stub_file: Union[str, Path]) -> 
 
     # Extract signal names from hierarchy (remove the DUT prefix)
     actual_signals = set()
-    dut_name = getattr(dut, '_name', 'dut')
+    dut_name = getattr(dut, "_name", "dut")
 
     for path in actual_hierarchy.keys():
         # Remove the DUT name prefix and get individual signal names
         if path.startswith(f"{dut_name}."):
-            signal_path = path[len(f"{dut_name}."):]
+            signal_path = path[len(f"{dut_name}.") :]
             # Add both the full path and just the signal name
             actual_signals.add(signal_path)
             # Also add just the immediate signal name (last part)
-            if '.' in signal_path:
-                actual_signals.add(signal_path.split('.')[-1])
+            if "." in signal_path:
+                actual_signals.add(signal_path.split(".")[-1])
             else:
                 actual_signals.add(signal_path)
         else:
             # For paths that don't start with DUT name, add as-is
             actual_signals.add(path)
-            if '.' in path:
-                actual_signals.add(path.split('.')[-1])
+            if "." in path:
+                actual_signals.add(path.split(".")[-1])
 
     # Parse stub file to get covered hierarchy
     covered_hierarchy = set()
@@ -86,7 +78,7 @@ def analyze_stub_coverage(dut: HierarchyObject, stub_file: Union[str, Path]) -> 
     stub_path = Path(stub_file)
     if stub_path.exists():
         try:
-            with open(stub_path, encoding='utf-8') as f:
+            with open(stub_path, encoding="utf-8") as f:
                 content = f.read()
 
             tree = ast.parse(content)
@@ -106,12 +98,12 @@ def analyze_stub_coverage(dut: HierarchyObject, stub_file: Union[str, Path]) -> 
     extra_signals = covered_hierarchy - actual_signals
 
     return {
-        'coverage_ratio': coverage_ratio,
-        'total_signals': len(actual_signals),
-        'covered_signals': len(covered_signals),
-        'missing_signals': sorted(list(missing_signals)),
-        'extra_signals': sorted(list(extra_signals)),
-        'stub_file': str(stub_path),
+        "coverage_ratio": coverage_ratio,
+        "total_signals": len(actual_signals),
+        "covered_signals": len(covered_signals),
+        "missing_signals": sorted(list(missing_signals)),
+        "extra_signals": sorted(list(extra_signals)),
+        "stub_file": str(stub_path),
     }
 
 
@@ -149,24 +141,24 @@ def validate_dut_interface(dut: HierarchyObject, expected_signals: List[str]) ->
 
     # Extract signal names from hierarchy (remove the DUT prefix)
     actual_signals = set()
-    dut_name = getattr(dut, '_name', 'dut')
+    dut_name = getattr(dut, "_name", "dut")
 
     for path in hierarchy.keys():
         # Remove the DUT name prefix and get individual signal names
         if path.startswith(f"{dut_name}."):
-            signal_path = path[len(f"{dut_name}."):]
+            signal_path = path[len(f"{dut_name}.") :]
             # Add both the full path and just the signal name
             actual_signals.add(signal_path)
             # Also add just the immediate signal name (last part)
-            if '.' in signal_path:
-                actual_signals.add(signal_path.split('.')[-1])
+            if "." in signal_path:
+                actual_signals.add(signal_path.split(".")[-1])
             else:
                 actual_signals.add(signal_path)
         else:
             # For paths that don't start with DUT name, add as-is
             actual_signals.add(path)
-            if '.' in path:
-                actual_signals.add(path.split('.')[-1])
+            if "." in path:
+                actual_signals.add(path.split(".")[-1])
 
     expected_set = set(expected_signals)
 
@@ -174,14 +166,14 @@ def validate_dut_interface(dut: HierarchyObject, expected_signals: List[str]) ->
     extra = actual_signals - expected_set
 
     validation_result = {
-        'valid': len(missing) == 0,
-        'missing_signals': sorted(list(missing)),
-        'extra_signals': sorted(list(extra)),
-        'total_expected': len(expected_signals),
-        'total_actual': len(actual_signals),
+        "valid": len(missing) == 0,
+        "missing_signals": sorted(list(missing)),
+        "extra_signals": sorted(list(extra)),
+        "total_expected": len(expected_signals),
+        "total_actual": len(actual_signals),
     }
 
-    if validation_result['valid']:
+    if validation_result["valid"]:
         print(f"[copra] DUT interface validation passed: {len(expected_signals)} signals found")
     else:
         print(f"[copra] DUT interface validation failed: {len(missing)} missing signals")
@@ -205,6 +197,7 @@ def validate_stub_syntax(stub_content: str) -> bool:
     """
     try:
         import ast
+
         ast.parse(stub_content)
         return True
     except SyntaxError as e:
@@ -230,136 +223,156 @@ def analyze_hierarchy_complexity(dut: Any) -> Dict[str, Any]:
         Dictionary containing detailed analysis results.
 
     """
-    hierarchy = discover_hierarchy(dut, max_depth=100, include_constants=True)
+    from .core import HierarchyDict
+    
+    hierarchy: HierarchyDict = discover_hierarchy(dut, max_depth=100, include_constants=True)
 
-    analysis = {
-        'total_signals': 0,
-        'total_modules': 0,
-        'max_depth': 0,
-        'module_count': 0,
-        'array_count': 0,
-        'signal_types': {},
-        'depth_distribution': {},
-        'naming_patterns': {},
-        'complexity_score': 0.0,
-        'hierarchy_paths': [],
-        'module_types': set(),
-        'signal_width_distribution': {},
-        'array_size_distribution': {},
-        'array_signals': {}  # Map array names to their elements
+    analysis: Dict[str, Any] = {
+        "total_signals": 0,
+        "total_modules": 0,
+        "max_depth": 0,
+        "module_count": 0,
+        "array_count": 0,
+        "signal_types": {},
+        "depth_distribution": {},
+        "naming_patterns": {},
+        "complexity_score": 0.0,
+        "hierarchy_paths": [],
+        "module_types": set(),
+        "signal_width_distribution": {},
+        "array_size_distribution": {},
+        "array_signals": {},  # Map array names to their elements
     }
 
     # First pass: identify which paths are modules (have children)
-    module_paths = set()
+    module_paths: Set[str] = set()
     module_paths.add("dut")  # Root is always a module
 
     for path in hierarchy.keys():
-        parts = path.split('.')
+        parts = path.split(".")
         # Add all parent paths as modules
         for i in range(1, len(parts)):
-            parent_path = '.'.join(parts[:i])
+            parent_path = ".".join(parts[:i])
             module_paths.add(parent_path)
 
     # Analyze each path in the hierarchy
     for path, obj_type in hierarchy.items():
-        analysis['hierarchy_paths'].append(path)
+        analysis["hierarchy_paths"].append(path)
 
         # Calculate depth
-        depth = path.count('.')
-        analysis['max_depth'] = max(analysis['max_depth'], depth)
+        depth = path.count(".")
+        analysis["max_depth"] = max(analysis["max_depth"], depth)
 
         # Update depth distribution
-        analysis['depth_distribution'][depth] = analysis['depth_distribution'].get(depth, 0) + 1
+        analysis["depth_distribution"][depth] = analysis["depth_distribution"].get(depth, 0) + 1
 
         # Classify object type
         type_name = obj_type.__name__
-        analysis['signal_types'][type_name] = analysis['signal_types'].get(type_name, 0) + 1
+        analysis["signal_types"][type_name] = analysis["signal_types"].get(type_name, 0) + 1
 
         # Count all objects as signals for total count (exclude root "dut" entry)
         if path != "dut":
-            analysis['total_signals'] += 1
+            analysis["total_signals"] += 1
 
         # Count modules separately
         if path in module_paths:
-            analysis['total_modules'] += 1
-            analysis['module_types'].add(type_name)
+            analysis["total_modules"] += 1
+            analysis["module_types"].add(type_name)
 
         # Check for arrays
-        if '[' in path and ']' in path:
+        if "[" in path and "]" in path:
             # Extract array size information
-            array_match = re.search(r'\[(\d+)\]', path)
+            array_match = re.search(r"\[(\d+)\]", path)
             if array_match:
                 array_index = int(array_match.group(1))
-                base_path = path[:path.rfind('[')]
+                base_path = path[: path.rfind("[")]
                 # Get just the array name (e.g., "mem" from "dut.mem")
-                base_name = base_path.split('.')[-1]
+                base_name = base_path.split(".")[-1]
 
-                if base_path not in analysis['array_size_distribution']:
-                    analysis['array_size_distribution'][base_path] = {
-                        'max_index': 0, 'indices': set()
+                if base_path not in analysis["array_size_distribution"]:
+                    analysis["array_size_distribution"][base_path] = {
+                        "max_index": 0,
+                        "indices": set(),
                     }
-                    analysis['array_signals'][base_name] = []
+                    array_signals = analysis["array_signals"]
+                    if isinstance(array_signals, dict):
+                        array_signals[base_name] = []
 
-                current_max = analysis['array_size_distribution'][base_path]['max_index']
-                analysis['array_size_distribution'][base_path]['max_index'] = max(
-                    current_max, array_index
-                )
-                analysis['array_size_distribution'][base_path]['indices'].add(array_index)
-                analysis['array_signals'][base_name].append(path)
+                array_dist = analysis["array_size_distribution"]
+                if isinstance(array_dist, dict) and base_path in array_dist:
+                    current_max = array_dist[base_path]["max_index"]
+                    if isinstance(current_max, int):
+                        array_dist[base_path]["max_index"] = max(current_max, array_index)
+                    
+                    indices_set = array_dist[base_path]["indices"]
+                    if isinstance(indices_set, set):
+                        indices_set.add(array_index)
+                
+                array_signals = analysis["array_signals"]
+                if isinstance(array_signals, dict) and base_name in array_signals:
+                    signal_list = array_signals[base_name]
+                    if isinstance(signal_list, list):
+                        signal_list.append(path)
 
         # Analyze naming patterns
-        path_parts = path.split('.')
+        path_parts = path.split(".")
         for part in path_parts:
             # Remove array indices for pattern analysis
-            clean_part = re.sub(r'\[\d+\]', '', part)
+            clean_part = re.sub(r"\[\d+\]", "", part)
             if clean_part:
                 # Analyze naming conventions
-                if '_' in clean_part:
-                    pattern = 'snake_case'
+                if "_" in clean_part:
+                    pattern = "snake_case"
                 elif clean_part[0].isupper():
-                    pattern = 'PascalCase'
+                    pattern = "PascalCase"
                 elif clean_part[0].islower() and any(c.isupper() for c in clean_part):
-                    pattern = 'camelCase'
+                    pattern = "camelCase"
                 else:
-                    pattern = 'lowercase'
+                    pattern = "lowercase"
 
-                current_count = analysis['naming_patterns'].get(pattern, 0)
-                analysis['naming_patterns'][pattern] = current_count + 1
+                current_count = analysis["naming_patterns"].get(pattern, 0)
+                analysis["naming_patterns"][pattern] = current_count + 1
 
     # Calculate complexity score
     # Base score from number of objects
     complexity = len(hierarchy)
 
     # Add complexity for depth
-    complexity += analysis['max_depth'] * 10
+    complexity += analysis["max_depth"] * 10
 
     # Add complexity for arrays
-    complexity += analysis['array_count'] * 5
+    complexity += analysis["array_count"] * 5
 
     # Add complexity for diverse signal types
-    complexity += len(analysis['signal_types']) * 2
+    complexity += len(analysis["signal_types"]) * 2
 
-    analysis['complexity_score'] = complexity
-    analysis['module_count'] = analysis['total_modules']
+    analysis["complexity_score"] = complexity
+    analysis["module_count"] = analysis["total_modules"]
 
     # Calculate array size statistics
-    for base_path, array_info in analysis['array_size_distribution'].items():
-        array_info['size'] = len(array_info['indices'])
-        array_info['is_contiguous'] = (
-            array_info['size'] == array_info['max_index'] + 1 and
-            min(array_info['indices']) == 0
-        )
+    array_size_dist = analysis["array_size_distribution"]
+    if isinstance(array_size_dist, dict):
+        for base_path, array_info in array_size_dist.items():
+            if isinstance(array_info, dict):
+                indices = array_info["indices"]
+                if isinstance(indices, set):
+                    array_info["size"] = len(indices)
+                    max_index = array_info["max_index"]
+                    if isinstance(max_index, int):
+                        array_info["is_contiguous"] = (
+                            array_info["size"] == max_index + 1 and min(indices) == 0
+                        )
 
     # Count unique arrays (not individual elements)
-    analysis['array_count'] = len(analysis['array_size_distribution'])
+    analysis["array_count"] = len(analysis["array_size_distribution"])
 
     # Detect functional naming patterns
-    functional_patterns = {
-        'clock_signals': [],
-        'reset_signals': [],
-        'input_signals': [],
-        'output_signals': [],
-        'bus_signals': []
+    functional_patterns: Dict[str, List[str]] = {
+        "clock_signals": [],
+        "reset_signals": [],
+        "input_signals": [],
+        "output_signals": [],
+        "bus_signals": [],
     }
 
     for path in hierarchy.keys():
@@ -368,38 +381,38 @@ def analyze_hierarchy_complexity(dut: Any) -> Dict[str, Any]:
         path_lower = path.lower()
 
         # Detect clock signals
-        clk_patterns = ['clk', 'clock']
+        clk_patterns = ["clk", "clock"]
         if any(clk_pattern in path_lower for clk_pattern in clk_patterns):
-            signal_type = 'clk' if 'clk' in path_lower else 'clock'
-            functional_patterns['clock_signals'].append(signal_type)
+            signal_type = "clk" if "clk" in path_lower else "clock"
+            functional_patterns["clock_signals"].append(signal_type)
 
         # Detect reset signals
-        rst_patterns = ['rst', 'reset']
+        rst_patterns = ["rst", "reset"]
         if any(rst_pattern in path_lower for rst_pattern in rst_patterns):
-            signal_type = 'rst' if 'rst' in path_lower else 'reset'
-            functional_patterns['reset_signals'].append(signal_type)
+            signal_type = "rst" if "rst" in path_lower else "reset"
+            functional_patterns["reset_signals"].append(signal_type)
 
         # Detect input/output signals
-        if 'in' in path_lower or 'input' in path_lower:
-            signal_type = 'in' if 'in' in path_lower else 'input'
-            functional_patterns['input_signals'].append(signal_type)
-        if 'out' in path_lower or 'output' in path_lower:
-            signal_type = 'out' if 'out' in path_lower else 'output'
-            functional_patterns['output_signals'].append(signal_type)
+        if "in" in path_lower or "input" in path_lower:
+            signal_type = "in" if "in" in path_lower else "input"
+            functional_patterns["input_signals"].append(signal_type)
+        if "out" in path_lower or "output" in path_lower:
+            signal_type = "out" if "out" in path_lower else "output"
+            functional_patterns["output_signals"].append(signal_type)
 
         # Detect bus interfaces
-        bus_patterns = ['axi', 'ahb', 'apb', 'wishbone', 'avalon']
+        bus_patterns = ["axi", "ahb", "apb", "wishbone", "avalon"]
         if any(bus_pattern in path_lower for bus_pattern in bus_patterns):
-            functional_patterns['bus_signals'].append(path)
+            functional_patterns["bus_signals"].append(path)
 
     # Remove duplicates and add to analysis
     for pattern_type, patterns in functional_patterns.items():
-        analysis['naming_patterns'][pattern_type] = list(set(patterns))
+        analysis["naming_patterns"][pattern_type] = list(set(patterns))
 
     return analysis
 
 
-def generate_hierarchy_report(dut: Any, output_file: str = None) -> str:
+def generate_hierarchy_report(dut: Any, output_file: Optional[str] = None) -> str:
     """Generate a comprehensive hierarchy analysis report.
 
     Args:
@@ -430,25 +443,29 @@ def generate_hierarchy_report(dut: Any, output_file: str = None) -> str:
         "## Signal Types",
     ]
 
-    for signal_type, count in analysis['signal_types'].items():
+    for signal_type, count in analysis["signal_types"].items():
         report_lines.append(f"- {signal_type}: {count}")
 
-    report_lines.extend([
-        "",
-        "## Depth Distribution",
-    ])
+    report_lines.extend(
+        [
+            "",
+            "## Depth Distribution",
+        ]
+    )
 
-    for depth, count in sorted(analysis['depth_distribution'].items()):
+    for depth, count in sorted(analysis["depth_distribution"].items()):
         report_lines.append(f"- Depth {depth}: {count} objects")
 
-    if analysis.get('array_size_distribution'):
-        report_lines.extend([
-            "",
-            "## Array Analysis",
-        ])
+    if analysis.get("array_size_distribution"):
+        report_lines.extend(
+            [
+                "",
+                "## Array Analysis",
+            ]
+        )
 
-        for base_path, array_info in sorted(analysis['array_size_distribution'].items()):
-            contiguous = "contiguous" if array_info['is_contiguous'] else "sparse"
+        for base_path, array_info in sorted(analysis["array_size_distribution"].items()):
+            contiguous = "contiguous" if array_info["is_contiguous"] else "sparse"
             report_lines.append(
                 f"- {base_path}: {array_info['size']} elements "
                 f"(max index: {array_info['max_index']}, {contiguous})"
@@ -457,7 +474,7 @@ def generate_hierarchy_report(dut: Any, output_file: str = None) -> str:
     report_content = "\n".join(report_lines)
 
     if output_file:
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             f.write(report_content)
 
     return report_content
@@ -480,59 +497,60 @@ def detect_design_patterns(dut: Any) -> Dict[str, List[str]]:
     from .core import discover_hierarchy
 
     hierarchy = discover_hierarchy(dut)
-    patterns = {
-        'clock_domains': [],
-        'reset_signals': [],
-        'bus_interfaces': [],
-        'memory_interfaces': [],
-        'state_machines': [],
-        'counters': [],
-        'fifos': [],
-        'pipeline_stages': []
+    patterns: Dict[str, List[str]] = {
+        "clock_domains": [],
+        "reset_signals": [],
+        "bus_interfaces": [],
+        "memory_interfaces": [],
+        "state_machines": [],
+        "counters": [],
+        "fifos": [],
+        "pipeline_stages": [],
     }
 
     for path in hierarchy.keys():
         path_lower = path.lower()
 
         # Detect clock signals
-        if any(clk_pattern in path_lower for clk_pattern in ['clk', 'clock', 'ck']):
-            patterns['clock_domains'].append(path)
+        if any(clk_pattern in path_lower for clk_pattern in ["clk", "clock", "ck"]):
+            patterns["clock_domains"].append(path)
 
         # Detect reset signals
-        if any(rst_pattern in path_lower for rst_pattern in ['rst', 'reset', 'res']):
-            patterns['reset_signals'].append(path)
+        if any(rst_pattern in path_lower for rst_pattern in ["rst", "reset", "res"]):
+            patterns["reset_signals"].append(path)
 
         # Detect bus interfaces
-        bus_patterns = ['axi', 'ahb', 'apb', 'wishbone', 'avalon']
+        bus_patterns = ["axi", "ahb", "apb", "wishbone", "avalon"]
         if any(bus_pattern in path_lower for bus_pattern in bus_patterns):
-            patterns['bus_interfaces'].append(path)
+            patterns["bus_interfaces"].append(path)
 
         # Detect memory interfaces
-        mem_patterns = ['mem', 'ram', 'rom', 'cache']
+        mem_patterns = ["mem", "ram", "rom", "cache"]
         if any(mem_pattern in path_lower for mem_pattern in mem_patterns):
-            patterns['memory_interfaces'].append(path)
+            patterns["memory_interfaces"].append(path)
 
         # Detect state machines
-        if any(sm_pattern in path_lower for sm_pattern in ['state', 'fsm', 'sm']):
-            patterns['state_machines'].append(path)
+        if any(sm_pattern in path_lower for sm_pattern in ["state", "fsm", "sm"]):
+            patterns["state_machines"].append(path)
 
         # Detect counters
-        if any(cnt_pattern in path_lower for cnt_pattern in ['count', 'cnt', 'counter']):
-            patterns['counters'].append(path)
+        if any(cnt_pattern in path_lower for cnt_pattern in ["count", "cnt", "counter"]):
+            patterns["counters"].append(path)
 
         # Detect FIFOs
-        if any(fifo_pattern in path_lower for fifo_pattern in ['fifo', 'queue', 'buffer']):
-            patterns['fifos'].append(path)
+        if any(fifo_pattern in path_lower for fifo_pattern in ["fifo", "queue", "buffer"]):
+            patterns["fifos"].append(path)
 
         # Detect pipeline stages
-        if re.search(r'stage\d+|pipe\d+|p\d+_', path_lower):
-            patterns['pipeline_stages'].append(path)
+        if re.search(r"stage\d+|pipe\d+|p\d+_", path_lower):
+            patterns["pipeline_stages"].append(path)
 
     return patterns
 
 
-def validate_naming_conventions(dut: Any,
-                                conventions: Dict[str, str] = None) -> Dict[str, List[str]]:
+def validate_naming_conventions(
+    dut: Any, conventions: Optional[Dict[str, str]] = None
+) -> Dict[str, List[str]]:
     """Validate naming conventions in the DUT hierarchy.
 
     Args:
@@ -547,11 +565,11 @@ def validate_naming_conventions(dut: Any,
     """
     if conventions is None:
         conventions = {
-            'signals': 'snake_case',
-            'modules': 'snake_case',
-            'constants': 'UPPER_CASE',
-            'clocks': 'clk_*',
-            'resets': 'rst_*'
+            "signals": "snake_case",
+            "modules": "snake_case",
+            "constants": "UPPER_CASE",
+            "clocks": "clk_*",
+            "resets": "rst_*",
         }
 
     import re
@@ -559,27 +577,57 @@ def validate_naming_conventions(dut: Any,
     from .core import discover_hierarchy
 
     hierarchy = discover_hierarchy(dut)
-    violations = {
-        'naming_violations': [],
-        'reserved_word_usage': [],
-        'length_violations': [],
-        'character_violations': []
+    violations: Dict[str, List[str]] = {
+        "naming_violations": [],
+        "reserved_word_usage": [],
+        "length_violations": [],
+        "character_violations": [],
     }
 
     # Python reserved words to check against
     reserved_words = {
-        'and', 'as', 'assert', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else',
-        'except', 'exec', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is',
-        'lambda', 'not', 'or', 'pass', 'print', 'raise', 'return', 'try', 'while', 'with',
-        'yield', 'True', 'False', 'None'
+        "and",
+        "as",
+        "assert",
+        "break",
+        "class",
+        "continue",
+        "def",
+        "del",
+        "elif",
+        "else",
+        "except",
+        "exec",
+        "finally",
+        "for",
+        "from",
+        "global",
+        "if",
+        "import",
+        "in",
+        "is",
+        "lambda",
+        "not",
+        "or",
+        "pass",
+        "print",
+        "raise",
+        "return",
+        "try",
+        "while",
+        "with",
+        "yield",
+        "True",
+        "False",
+        "None",
     }
 
     for path in hierarchy.keys():
-        path_parts = path.split('.')
+        path_parts = path.split(".")
 
         for part in path_parts:
             # Remove array indices for validation
-            clean_part = re.sub(r'\[\d+\]', '', part)
+            clean_part = re.sub(r"\[\d+\]", "", part)
 
             if not clean_part:
                 continue
@@ -587,37 +635,38 @@ def validate_naming_conventions(dut: Any,
             # Check for reserved words
             if clean_part in reserved_words:
                 msg = f"{path}: '{clean_part}' is a Python reserved word"
-                violations['reserved_word_usage'].append(msg)
+                violations["reserved_word_usage"].append(msg)
 
             # Check name length (reasonable limits)
             if len(clean_part) > 50:
                 msg = f"{path}: '{clean_part}' is too long ({len(clean_part)} chars)"
-                violations['length_violations'].append(msg)
+                violations["length_violations"].append(msg)
             elif len(clean_part) < 2:
                 msg = f"{path}: '{clean_part}' is too short"
-                violations['length_violations'].append(msg)
+                violations["length_violations"].append(msg)
 
             # Check for invalid characters
-            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', clean_part):
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", clean_part):
                 msg = f"{path}: '{clean_part}' contains invalid characters"
-                violations['character_violations'].append(msg)
+                violations["character_violations"].append(msg)
 
             # Check naming conventions
-            if 'clk' in clean_part.lower() or 'clock' in clean_part.lower():
-                if not clean_part.lower().startswith('clk'):
+            if "clk" in clean_part.lower() or "clock" in clean_part.lower():
+                if not clean_part.lower().startswith("clk"):
                     msg = f"{path}: Clock signal '{clean_part}' should start with 'clk'"
-                    violations['naming_violations'].append(msg)
+                    violations["naming_violations"].append(msg)
 
-            if 'rst' in clean_part.lower() or 'reset' in clean_part.lower():
-                if not clean_part.lower().startswith('rst'):
+            if "rst" in clean_part.lower() or "reset" in clean_part.lower():
+                if not clean_part.lower().startswith("rst"):
                     msg = f"{path}: Reset signal '{clean_part}' should start with 'rst'"
-                    violations['naming_violations'].append(msg)
+                    violations["naming_violations"].append(msg)
 
     return violations
 
 
-def find_unused_signals(hierarchy: Dict[str, type],
-                        exclude_patterns: List[str] = None) -> List[str]:
+def find_unused_signals(
+    hierarchy: Dict[str, type], exclude_patterns: Optional[List[str]] = None
+) -> List[str]:
     """Find signals that appear to be unused based on naming patterns.
 
     Args:
@@ -641,14 +690,14 @@ def find_unused_signals(hierarchy: Dict[str, type],
     unused_signals = []
     for path, obj_type in hierarchy.items():
         # Skip the root DUT
-        if '.' not in path:
+        if "." not in path:
             continue
 
         # Check if signal is in usage patterns
         if path not in usage_patterns:
             # Check if it matches any exclude pattern
             excluded = False
-            signal_name = path.split('.')[-1]  # Get just the signal name
+            signal_name = path.split(".")[-1]  # Get just the signal name
             for pattern in exclude_patterns:
                 # Check both full path and signal name
                 path_match = fnmatch.fnmatch(path, pattern)
@@ -680,58 +729,60 @@ def _analyze_signal_usage(hierarchy: Dict[str, type]) -> Dict[str, List[str]]:
 
     """
     usage_patterns = {}
-    
+
     # Analyze each signal in the hierarchy
     for signal_path, signal_type in hierarchy.items():
         patterns = []
-        
+
         # Skip the root DUT object
-        if '.' not in signal_path:
+        if "." not in signal_path:
             continue
-            
-        signal_name = signal_path.split('.')[-1].lower()
-        
+
+        signal_name = signal_path.split(".")[-1].lower()
+
         # Detect clock signals
-        if any(clk_pattern in signal_name for clk_pattern in ['clk', 'clock', 'ck']):
-            patterns.append('clock')
-            patterns.append('read')  # Clock signals are typically read
-            
+        if any(clk_pattern in signal_name for clk_pattern in ["clk", "clock", "ck"]):
+            patterns.append("clock")
+            patterns.append("read")  # Clock signals are typically read
+
         # Detect reset signals
-        elif any(rst_pattern in signal_name for rst_pattern in ['rst', 'reset', 'res']):
-            patterns.append('reset')
-            patterns.append('read')  # Reset signals are typically read
-            
+        elif any(rst_pattern in signal_name for rst_pattern in ["rst", "reset", "res"]):
+            patterns.append("reset")
+            patterns.append("read")  # Reset signals are typically read
+
         # Detect input signals (typically read)
-        elif any(in_pattern in signal_name for in_pattern in ['_in', 'input', 'req', 'valid']):
-            patterns.append('read')
-            
+        elif any(in_pattern in signal_name for in_pattern in ["_in", "input", "req", "valid"]):
+            patterns.append("read")
+
         # Detect output signals (typically written)
-        elif any(out_pattern in signal_name for out_pattern in ['_out', 'output', 'ack', 'ready']):
-            patterns.append('write')
-            
+        elif any(out_pattern in signal_name for out_pattern in ["_out", "output", "ack", "ready"]):
+            patterns.append("write")
+
         # Detect data signals (both read and write)
-        elif any(data_pattern in signal_name for data_pattern in ['data', 'addr', 'address']):
-            patterns.append('read')
-            patterns.append('write')
-            
+        elif any(data_pattern in signal_name for data_pattern in ["data", "addr", "address"]):
+            patterns.append("read")
+            patterns.append("write")
+
         # Detect enable/control signals
-        elif any(ctrl_pattern in signal_name for ctrl_pattern in ['enable', 'en', 'ctrl', 'control']):
-            patterns.append('read')
-            
+        elif any(
+            ctrl_pattern in signal_name for ctrl_pattern in ["enable", "en", "ctrl", "control"]
+        ):
+            patterns.append("read")
+
         # Detect constant-like signals
-        elif signal_name.isupper() or 'const' in signal_name:
-            patterns.append('constant')
-            patterns.append('read')
-            
+        elif signal_name.isupper() or "const" in signal_name:
+            patterns.append("constant")
+            patterns.append("read")
+
         # Default pattern for unrecognized signals
         else:
             # Assume basic read/write capability for most signals
-            patterns.append('read')
-            
+            patterns.append("read")
+
         # Store the patterns for this signal
         if patterns:
             usage_patterns[signal_path] = patterns
-            
+
     return usage_patterns
 
 
@@ -747,70 +798,71 @@ def detect_naming_patterns(signal_names: List[str]) -> Dict[str, List[str]]:
         Dictionary mapping pattern types to detected patterns.
 
     """
-    patterns = {
-        'clock_signals': [],
-        'reset_signals': [],
-        'input_signals': [],
-        'output_signals': [],
-        'bus_signals': []
+    patterns: Dict[str, List[str]] = {
+        "clock_signals": [],
+        "reset_signals": [],
+        "input_signals": [],
+        "output_signals": [],
+        "bus_signals": [],
     }
 
     # Detect clock patterns
     clock_patterns = set()
     for name in signal_names:
         name_lower = name.lower()
-        if 'clk' in name_lower or 'clock' in name_lower:
+        if "clk" in name_lower or "clock" in name_lower:
             # Extract the pattern
-            if 'clk' in name_lower:
-                clock_patterns.add('clk')
-            if 'clock' in name_lower:
-                clock_patterns.add('clock')
-    patterns['clock_signals'] = list(clock_patterns)
+            if "clk" in name_lower:
+                clock_patterns.add("clk")
+            if "clock" in name_lower:
+                clock_patterns.add("clock")
+    patterns["clock_signals"] = list(clock_patterns)
 
     # Detect reset patterns
     reset_patterns = set()
     for name in signal_names:
         name_lower = name.lower()
-        if 'rst' in name_lower or 'reset' in name_lower:
-            if 'rst' in name_lower:
-                reset_patterns.add('rst')
-            if 'reset' in name_lower:
-                reset_patterns.add('reset')
-    patterns['reset_signals'] = list(reset_patterns)
+        if "rst" in name_lower or "reset" in name_lower:
+            if "rst" in name_lower:
+                reset_patterns.add("rst")
+            if "reset" in name_lower:
+                reset_patterns.add("reset")
+    patterns["reset_signals"] = list(reset_patterns)
 
     # Detect input/output patterns
     input_patterns = set()
     output_patterns = set()
     for name in signal_names:
         name_lower = name.lower()
-        if 'in' in name_lower or 'input' in name_lower:
-            if '_in' in name_lower or 'in_' in name_lower:
-                input_patterns.add('in')
-            if 'input' in name_lower:
-                input_patterns.add('input')
-        if 'out' in name_lower or 'output' in name_lower:
-            if '_out' in name_lower or 'out_' in name_lower:
-                output_patterns.add('out')
-            if 'output' in name_lower:
-                output_patterns.add('output')
-    patterns['input_signals'] = list(input_patterns)
-    patterns['output_signals'] = list(output_patterns)
+        if "in" in name_lower or "input" in name_lower:
+            if "_in" in name_lower or "in_" in name_lower:
+                input_patterns.add("in")
+            if "input" in name_lower:
+                input_patterns.add("input")
+        if "out" in name_lower or "output" in name_lower:
+            if "_out" in name_lower or "out_" in name_lower:
+                output_patterns.add("out")
+            if "output" in name_lower:
+                output_patterns.add("output")
+    patterns["input_signals"] = list(input_patterns)
+    patterns["output_signals"] = list(output_patterns)
 
     # Detect bus patterns
     bus_patterns = set()
     for name in signal_names:
         name_lower = name.lower()
         # Look for common bus prefixes
-        for bus_type in ['axi', 'ahb', 'apb', 'pci', 'usb', 'spi', 'i2c']:
+        for bus_type in ["axi", "ahb", "apb", "pci", "usb", "spi", "i2c"]:
             if bus_type in name_lower:
                 bus_patterns.add(bus_type)
-    patterns['bus_signals'] = list(bus_patterns)
+    patterns["bus_signals"] = list(bus_patterns)
 
     return patterns
 
 
-def suggest_signal_groupings(signal_names: List[str], group_by: str = 'prefix',
-                           min_group_size: int = 2) -> Dict[str, List[str]]:
+def suggest_signal_groupings(
+    signal_names: List[str], group_by: str = "prefix", min_group_size: int = 2
+) -> Dict[str, List[str]]:
     """Suggest logical groupings for signals based on naming patterns.
 
     Args:
@@ -824,15 +876,15 @@ def suggest_signal_groupings(signal_names: List[str], group_by: str = 'prefix',
         Dictionary mapping group names to lists of signal names.
 
     """
-    groupings = {}
+    groupings: Dict[str, List[str]] = {}
 
-    if group_by == 'prefix':
+    if group_by == "prefix":
         # Group by common prefixes
-        prefix_groups = {}
+        prefix_groups: Dict[str, List[str]] = {}
         for name in signal_names:
             # Extract prefix (everything before first underscore)
-            if '_' in name:
-                prefix = name.split('_')[0]
+            if "_" in name:
+                prefix = name.split("_")[0]
                 if prefix not in prefix_groups:
                     prefix_groups[prefix] = []
                 prefix_groups[prefix].append(name)
@@ -842,28 +894,28 @@ def suggest_signal_groupings(signal_names: List[str], group_by: str = 'prefix',
             if len(signals) >= min_group_size:
                 groupings[prefix] = signals
 
-    elif group_by == 'function':
+    elif group_by == "function":
         # Group by functional similarity
-        functional_groups = {
-            'clock_signals': [],
-            'reset_signals': [],
-            'data_signals': [],
-            'control_signals': [],
-            'interrupt_signals': []
+        functional_groups: Dict[str, List[str]] = {
+            "clock_signals": [],
+            "reset_signals": [],
+            "data_signals": [],
+            "control_signals": [],
+            "interrupt_signals": [],
         }
 
         for name in signal_names:
             name_lower = name.lower()
-            if 'clk' in name_lower or 'clock' in name_lower:
-                functional_groups['clock_signals'].append(name)
-            elif 'rst' in name_lower or 'reset' in name_lower:
-                functional_groups['reset_signals'].append(name)
-            elif 'data' in name_lower or 'addr' in name_lower:
-                functional_groups['data_signals'].append(name)
-            elif 'irq' in name_lower or 'int' in name_lower:
-                functional_groups['interrupt_signals'].append(name)
+            if "clk" in name_lower or "clock" in name_lower:
+                functional_groups["clock_signals"].append(name)
+            elif "rst" in name_lower or "reset" in name_lower:
+                functional_groups["reset_signals"].append(name)
+            elif "data" in name_lower or "addr" in name_lower:
+                functional_groups["data_signals"].append(name)
+            elif "irq" in name_lower or "int" in name_lower:
+                functional_groups["interrupt_signals"].append(name)
             else:
-                functional_groups['control_signals'].append(name)
+                functional_groups["control_signals"].append(name)
 
         # Filter by minimum group size
         for group_name, signals in functional_groups.items():
@@ -886,50 +938,64 @@ def validate_hierarchy_structure(hierarchy: Dict[str, type], max_depth: int = 20
         Dictionary containing validation results.
 
     """
-    validation = {
-        'is_valid': True,
-        'has_root': False,
-        'max_depth': 0,
-        'orphaned_signals': [],
-        'issues': []
+    validation: Dict[str, Any] = {
+        "is_valid": True,
+        "has_root": False,
+        "max_depth": 0,
+        "orphaned_signals": [],
+        "issues": [],
     }
 
     # Check for root element
-    root_candidates = [path for path in hierarchy.keys() if '.' not in path]
+    root_candidates = [path for path in hierarchy.keys() if "." not in path]
     if len(root_candidates) == 1:
-        validation['has_root'] = True
+        validation["has_root"] = True
         root_name = root_candidates[0]
     elif len(root_candidates) > 1:
         # Multiple roots - this is invalid
-        validation['is_valid'] = False
-        validation['has_root'] = False
-        validation['issues'].append(f"Multiple root elements found: {root_candidates}")
+        validation["is_valid"] = False
+        validation["has_root"] = False
+        issues_list = validation["issues"]
+        if isinstance(issues_list, list):
+            issues_list.append(f"Multiple root elements found: {root_candidates}")
         return validation
     else:
-        validation['is_valid'] = False
-        validation['has_root'] = False
-        validation['issues'].append("No root element found in hierarchy")
+        validation["is_valid"] = False
+        validation["has_root"] = False
+        issues_list = validation["issues"]
+        if isinstance(issues_list, list):
+            issues_list.append("No root element found in hierarchy")
         return validation
 
     # Calculate maximum depth and find orphaned signals
     for path in hierarchy.keys():
-        depth = path.count('.')
-        validation['max_depth'] = max(validation['max_depth'], depth)
+        depth = path.count(".")
+        current_max = validation["max_depth"]
+        if isinstance(current_max, int):
+            validation["max_depth"] = max(current_max, depth)
 
         # Check if signal is properly connected to root
-        if '.' in path and not path.startswith(root_name + '.'):
-            validation['orphaned_signals'].append(path)
+        if "." in path and not path.startswith(root_name + "."):
+            orphaned_list = validation["orphaned_signals"]
+            if isinstance(orphaned_list, list):
+                orphaned_list.append(path)
 
     # Check depth limit
-    if validation['max_depth'] > max_depth:
-        validation['is_valid'] = False
-        msg = f"Hierarchy depth {validation['max_depth']} exceeds limit {max_depth}"
-        validation['issues'].append(msg)
+    max_depth_val = validation["max_depth"]
+    if isinstance(max_depth_val, int) and max_depth_val > max_depth:
+        validation["is_valid"] = False
+        issues_list = validation["issues"]
+        if isinstance(issues_list, list):
+            msg = f"Hierarchy depth {max_depth_val} exceeds limit {max_depth}"
+            issues_list.append(msg)
 
     # Check for orphaned signals
-    if validation['orphaned_signals']:
-        validation['is_valid'] = False
-        validation['issues'].append(f"Found {len(validation['orphaned_signals'])} orphaned signals")
+    orphaned_list = validation["orphaned_signals"]
+    if isinstance(orphaned_list, list) and orphaned_list:
+        validation["is_valid"] = False
+        issues_list = validation["issues"]
+        if isinstance(issues_list, list):
+            issues_list.append(f"Found {len(orphaned_list)} orphaned signals")
 
     return validation
 
@@ -942,9 +1008,11 @@ def analyze_hierarchy(hierarchy: Dict[str, type]) -> Dict[str, Any]:
     and other patterns.
 
     Args:
+    ----
         hierarchy: Dictionary mapping paths to types.
 
     Returns:
+    -------
         Dictionary containing analysis results including:
         - total_objects: Total number of objects in hierarchy
         - max_depth: Maximum depth of hierarchy
@@ -954,40 +1022,68 @@ def analyze_hierarchy(hierarchy: Dict[str, type]) -> Dict[str, Any]:
         - naming_conventions: Dictionary of naming convention analysis
         - structure: Dictionary of hierarchy structure analysis
         - unused_signals: List of potentially unused signals
+
     """
     # Get basic statistics
     total_objects = len(hierarchy)
-    max_depth = max(path.count('.') for path in hierarchy.keys()) if hierarchy else 0
+    max_depth = max(path.count(".") for path in hierarchy.keys()) if hierarchy else 0
 
     # Analyze signal types
-    signal_types = {}
+    signal_types: Dict[str, int] = {}
     for path, obj_type in hierarchy.items():
         type_name = obj_type.__name__
         signal_types[type_name] = signal_types.get(type_name, 0) + 1
 
     # Find arrays and their patterns
-    arrays = {}
+    arrays: Dict[str, Dict[str, Any]] = {}
     for path, obj_type in hierarchy.items():
-        array_match = re.match(r'^(.+)\[(\d+)\]$', path)
+        array_match = re.match(r"^(.+)\[(\d+)\]$", path)
         if array_match:
             base_path = array_match.group(1)
             index = int(array_match.group(2))
             if base_path not in arrays:
                 arrays[base_path] = {
-                    'indices': set(),
-                    'element_type': obj_type,
-                    'max_index': index,
-                    'min_index': index
+                    "indices": set(),
+                    "element_type": obj_type,
+                    "max_index": index,
+                    "min_index": index,
                 }
-            arrays[base_path]['indices'].add(index)
-            arrays[base_path]['max_index'] = max(arrays[base_path]['max_index'], index)
-            arrays[base_path]['min_index'] = min(arrays[base_path]['min_index'], index)
+            array_data = arrays[base_path]
+            indices_set = array_data["indices"]
+            if isinstance(indices_set, set):
+                indices_set.add(index)
+            max_index = array_data["max_index"]
+            if isinstance(max_index, int):
+                array_data["max_index"] = max(max_index, index)
+            min_index = array_data["min_index"]
+            if isinstance(min_index, int):
+                array_data["min_index"] = min(min_index, index)
 
-    # Detect design patterns
-    patterns = detect_design_patterns(hierarchy)
+    # For design patterns and naming conventions, we need a mock DUT object
+    # since these functions expect a DUT object, not a hierarchy dict
+    from unittest.mock import Mock
+    mock_dut = Mock()
+    mock_dut._name = "dut"
+    
+    # Temporarily patch the discover_hierarchy function to return our hierarchy
+    from . import core
+    original_discover = core.discover_hierarchy
+    
+    def mock_discover_hierarchy(dut: Any, **kwargs: Any) -> Dict[str, type]:
+        return hierarchy
+    
+    try:
+        # Temporarily replace the function
+        core.discover_hierarchy = mock_discover_hierarchy  # type: ignore[assignment]
+        
+        # Detect design patterns
+        patterns = detect_design_patterns(mock_dut)
 
-    # Analyze naming conventions
-    naming_conventions = validate_naming_conventions(hierarchy)
+        # Analyze naming conventions  
+        naming_conventions = validate_naming_conventions(mock_dut)
+    finally:
+        # Restore original function
+        core.discover_hierarchy = original_discover
 
     # Analyze hierarchy structure
     structure = validate_hierarchy_structure(hierarchy)
@@ -996,12 +1092,12 @@ def analyze_hierarchy(hierarchy: Dict[str, type]) -> Dict[str, Any]:
     unused = find_unused_signals(hierarchy)
 
     return {
-        'total_objects': total_objects,
-        'max_depth': max_depth,
-        'signal_types': signal_types,
-        'arrays': arrays,
-        'patterns': patterns,
-        'naming_conventions': naming_conventions,
-        'structure': structure,
-        'unused_signals': unused,
+        "total_objects": total_objects,
+        "max_depth": max_depth,
+        "signal_types": signal_types,
+        "arrays": arrays,
+        "patterns": patterns,
+        "naming_conventions": naming_conventions,
+        "structure": structure,
+        "unused_signals": unused,
     }

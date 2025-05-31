@@ -16,8 +16,8 @@ class TestVersionChecking:
         mock_cocotb = Mock()
         mock_cocotb.__version__ = "2.0.0"
 
-        with patch.dict('sys.modules', {'cocotb': mock_cocotb}):
-            with patch('packaging.version.parse') as mock_parse:
+        with patch.dict("sys.modules", {"cocotb": mock_cocotb}):
+            with patch("packaging.version.parse") as mock_parse:
                 # Mock version parsing
                 mock_version = Mock()
                 mock_version.base_version = "2.0.0"
@@ -25,91 +25,88 @@ class TestVersionChecking:
 
                 # This should not raise an exception
                 import copra
+
                 assert copra.__version__ is not None
 
     def test_version_check_failure_old_version(self) -> None:
         """Test version check failure with old cocotb version."""
-        from copra import _check_cocotb_version
-
-        # Mock cocotb with an old version
-        mock_cocotb = Mock()
-        mock_cocotb.__version__ = "1.9.0"
-
-        with patch.dict('sys.modules', {'cocotb': mock_cocotb}):
-            with pytest.raises(ImportError, match="copra requires cocotb >= 2.0.0"):
-                _check_cocotb_version()
+        # Test the version checking logic directly by patching the global variables
+        with patch("copra.COCOTB_AVAILABLE", True), \
+             patch("copra.COCOTB_VERSION", "1.9.0"):
+            
+            # Create a mock cocotb that doesn't look like a Mock object
+            class FakeCocotb:
+                __version__ = "1.9.0"
+            
+            with patch("copra.cocotb", FakeCocotb()):
+                # Import the function after patching
+                from copra import _check_cocotb_version
+                
+                with pytest.raises(ImportError, match="copra requires cocotb >= 2.0.0"):
+                    _check_cocotb_version()
 
     def test_version_check_dev_version(self) -> None:
         """Test version check with development version."""
-        # Mock cocotb with a development version
-        mock_cocotb = Mock()
-        mock_cocotb.__version__ = "2.0.0.dev0"
-
-        with patch.dict('sys.modules', {'cocotb': mock_cocotb}):
-            with patch('packaging.version.parse') as mock_parse:
-                # Mock version parsing for dev version
-                mock_version = Mock()
-                mock_version.base_version = "2.0.0"  # Dev versions should pass
-                mock_parse.return_value = mock_version
-
+        # Test with a development version that should pass
+        with patch("copra.COCOTB_AVAILABLE", True), \
+             patch("copra.COCOTB_VERSION", "2.0.0.dev0"):
+            
+            # Create a mock cocotb that doesn't look like a Mock object
+            class FakeCocotb:
+                __version__ = "2.0.0.dev0"
+            
+            with patch("copra.cocotb", FakeCocotb()):
+                from copra import _check_cocotb_version
+                
                 # This should not raise an exception
-                import copra
-                assert copra.__version__ is not None
+                try:
+                    _check_cocotb_version()
+                except ImportError:
+                    pytest.fail("Version check should not fail for dev version 2.0.0.dev0")
 
     def test_cocotb_import_error(self) -> None:
         """Test handling of cocotb import error."""
-        # Since the module is already imported, we test the version checking logic directly
-        from copra import _check_cocotb_version
-
-        # Mock cocotb to not exist
-        with patch('builtins.__import__') as mock_import:
-            def import_side_effect(
-                name: str,
-                globals: Optional[Mapping[str, object]] = None,
-                locals: Optional[Mapping[str, object]] = None,
-                fromlist: Sequence[str] = (),
-                level: int = 0,
-            ) -> Any:
-                if name == 'cocotb':
-                    raise ImportError("No module named 'cocotb'")
-                return __import__(name, globals, locals, fromlist, level)
-
-            mock_import.side_effect = import_side_effect
-
+        # Test when cocotb is not available
+        with patch("copra.COCOTB_AVAILABLE", False):
+            from copra import _check_cocotb_version
+            
             with pytest.raises(ImportError, match="copra requires cocotb >= 2.0.0"):
                 _check_cocotb_version()
 
     def test_cocotb_attribute_error(self) -> None:
         """Test handling of cocotb without __version__ attribute."""
-        # Mock cocotb without __version__ attribute
-        mock_cocotb = Mock(spec=[])  # Empty spec means no attributes
-
-        with patch.dict('sys.modules', {'cocotb': mock_cocotb}):
-            # This should print a message but not crash
-            import copra
-            assert copra.__version__ is not None
+        # Test when version is unknown
+        with patch("copra.COCOTB_AVAILABLE", True), \
+             patch("copra.COCOTB_VERSION", "unknown"):
+            
+            # Create a mock cocotb that doesn't look like a Mock object
+            class FakeCocotb:
+                __version__ = None
+            
+            with patch("copra.cocotb", FakeCocotb()):
+                from copra import _check_cocotb_version
+                
+                # This should not raise an exception, just print a warning
+                try:
+                    _check_cocotb_version()
+                except ImportError:
+                    pytest.fail("Version check should not fail when version is unknown")
 
     def test_version_check_reraise_our_error(self) -> None:
         """Test that our version check errors are re-raised."""
-        from copra import _check_cocotb_version
-
-        # Test that version check errors are properly handled
-        with patch('builtins.__import__') as mock_import:
-            def import_side_effect(
-                name: str,
-                globals: Optional[Mapping[str, object]] = None,
-                locals: Optional[Mapping[str, object]] = None,
-                fromlist: Sequence[str] = (),
-                level: int = 0,
-            ) -> Any:
-                if name == 'cocotb':
-                    raise ImportError("copra requires cocotb >= 2.0.0, but found 1.8.0")
-                return __import__(name, globals, locals, fromlist, level)
-
-            mock_import.side_effect = import_side_effect
-
-            with pytest.raises(ImportError, match="copra requires cocotb >= 2.0.0"):
-                _check_cocotb_version()
+        # Test that specific version errors are properly raised
+        with patch("copra.COCOTB_AVAILABLE", True), \
+             patch("copra.COCOTB_VERSION", "1.8.0"):
+            
+            # Create a mock cocotb that doesn't look like a Mock object
+            class FakeCocotb:
+                __version__ = "1.8.0"
+            
+            with patch("copra.cocotb", FakeCocotb()):
+                from copra import _check_cocotb_version
+                
+                with pytest.raises(ImportError, match="copra requires cocotb >= 2.0.0"):
+                    _check_cocotb_version()
 
 
 class TestModuleExports:
@@ -150,10 +147,7 @@ class TestModuleExports:
         ]
 
         all_expected_exports = (
-            core_exports +
-            analysis_exports +
-            generation_exports +
-            mocking_exports
+            core_exports + analysis_exports + generation_exports + mocking_exports
         )
 
         for export in all_expected_exports:
@@ -163,6 +157,7 @@ class TestModuleExports:
     def test_version_available(self) -> None:
         """Test that version is available."""
         import copra
+
         assert copra.__version__ is not None
         assert isinstance(copra.__version__, str)
         assert len(copra.__version__) > 0
@@ -243,10 +238,10 @@ class TestVersionPrinting:
         mock_cocotb = Mock()
         mock_cocotb.__version__ = "2.0.0"  # Use valid version format
 
-        with patch.dict('sys.modules', {'cocotb': mock_cocotb}):
+        with patch.dict("sys.modules", {"cocotb": mock_cocotb}):
             # Force a fresh import to trigger version printing
-            if 'copra' in sys.modules:
-                del sys.modules['copra']
+            if "copra" in sys.modules:
+                del sys.modules["copra"]
 
             # Check that version was printed (captured by capsys)
             capsys.readouterr()
@@ -263,10 +258,10 @@ class TestModuleStructure:
         import copra
 
         # Test that we can access all major components
-        assert hasattr(copra, 'core')
-        assert hasattr(copra, 'analysis')
-        assert hasattr(copra, 'generation')
-        assert hasattr(copra, 'mocking')
+        assert hasattr(copra, "core")
+        assert hasattr(copra, "analysis")
+        assert hasattr(copra, "generation")
+        assert hasattr(copra, "mocking")
 
         # Test that the main API is available at the top level
         assert callable(copra.create_stub_from_dut)
@@ -293,17 +288,17 @@ class TestModuleStructure:
         import copra
 
         # Core functionality should be easily accessible
-        assert hasattr(copra, 'create_stub_from_dut')
-        assert hasattr(copra, 'auto_generate_stubs')
+        assert hasattr(copra, "create_stub_from_dut")
+        assert hasattr(copra, "auto_generate_stubs")
 
         # Analysis tools should be available
-        assert hasattr(copra, 'analyze_stub_coverage')
-        assert hasattr(copra, 'validate_dut_interface')
+        assert hasattr(copra, "analyze_stub_coverage")
+        assert hasattr(copra, "validate_dut_interface")
 
         # Code generation should be available
-        assert hasattr(copra, 'generate_testbench_template')
+        assert hasattr(copra, "generate_testbench_template")
 
         # Mocking should be available
-        assert hasattr(copra, 'MockDUT')
-        assert hasattr(copra, 'MockSignal')
-        assert hasattr(copra, 'MockModule')
+        assert hasattr(copra, "MockDUT")
+        assert hasattr(copra, "MockSignal")
+        assert hasattr(copra, "MockModule")

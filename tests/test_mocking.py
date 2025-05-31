@@ -194,7 +194,7 @@ class TestMockDUT:
 
     def test_mock_dut_creation_with_stub(self):
         """Test MockDUT creation with stub file."""
-        stub_content = '''
+        stub_content = """
 class TestDut:
     clk: SimHandleBase
     rst_n: SimHandleBase
@@ -202,9 +202,9 @@ class TestDut:
 
 class SubModule:
     reg_a: SimHandleBase
-'''
+"""
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.pyi', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".pyi", delete=False) as f:
             f.write(stub_content)
             stub_file = f.name
 
@@ -457,9 +457,9 @@ class TestSignalValueHistory:
         history.record_change(0, 1, 3.0)
 
         assert len(history.history) == 3
-        assert history.history[0]['old_value'] == 0
-        assert history.history[0]['new_value'] == 1
-        assert history.history[0]['timestamp'] == 1.0
+        assert history.history[0]["old_value"] == 0
+        assert history.history[0]["new_value"] == 1
+        assert history.history[0]["timestamp"] == 1.0
 
     def test_max_history_limit(self):
         """Test that history respects max_history limit."""
@@ -467,12 +467,12 @@ class TestSignalValueHistory:
 
         # Record more changes than the limit
         for i in range(5):
-            history.record_change(i, i+1, float(i))
+            history.record_change(i, i + 1, float(i))
 
         # Should only keep the last 2 changes
         assert len(history.history) == 2
-        assert history.history[0]['old_value'] == 3
-        assert history.history[1]['old_value'] == 4
+        assert history.history[0]["old_value"] == 3
+        assert history.history[1]["old_value"] == 4
 
     def test_get_change_count(self):
         """Test getting change count."""
@@ -495,9 +495,9 @@ class TestSignalValueHistory:
         history.record_change(1, 0, 2.0)
 
         last_change = history.get_last_change()
-        assert last_change['old_value'] == 1
-        assert last_change['new_value'] == 0
-        assert last_change['timestamp'] == 2.0
+        assert last_change["old_value"] == 1
+        assert last_change["new_value"] == 0
+        assert last_change["timestamp"] == 2.0
 
     def test_clear_history(self):
         """Test clearing history."""
@@ -541,8 +541,8 @@ class TestEnhancedMockSignal:
 
         # Check last change
         last_change = signal._value_history.get_last_change()
-        assert last_change['old_value'] == 1
-        assert last_change['new_value'] == 0
+        assert last_change["old_value"] == 1
+        assert last_change["new_value"] == 0
 
     def test_callback_functionality(self):
         """Test callback registration and execution."""
@@ -703,15 +703,15 @@ class TestEnhancedMockDUT:
             "dut": Mock,
             "dut.bus_data": Mock,
             "dut.bus_valid": Mock,
-            "dut.bus_ready": Mock
+            "dut.bus_ready": Mock,
         }
 
         mock_dut = create_mock_dut_from_hierarchy(hierarchy)
 
         # Should have created signals
-        assert hasattr(mock_dut, 'bus_data')
-        assert hasattr(mock_dut, 'bus_valid')
-        assert hasattr(mock_dut, 'bus_ready')
+        assert hasattr(mock_dut, "bus_data")
+        assert hasattr(mock_dut, "bus_valid")
+        assert hasattr(mock_dut, "bus_ready")
 
         # Test signal functionality
         mock_dut.bus_data.value = 0x42
@@ -724,16 +724,16 @@ class TestEnhancedMockDUT:
             "dut.clk": Mock,
             "dut.rst_n": Mock,
             "dut.data_in": Mock,
-            "dut.data_out": Mock
+            "dut.data_out": Mock,
         }
 
         mock_dut = create_mock_dut_from_hierarchy(hierarchy)
 
         # Test direct access
-        assert hasattr(mock_dut, 'clk')
-        assert hasattr(mock_dut, 'rst_n')
-        assert hasattr(mock_dut, 'data_in')
-        assert hasattr(mock_dut, 'data_out')
+        assert hasattr(mock_dut, "clk")
+        assert hasattr(mock_dut, "rst_n")
+        assert hasattr(mock_dut, "data_in")
+        assert hasattr(mock_dut, "data_out")
 
         # Test value setting
         mock_dut.clk.value = 1
@@ -751,7 +751,7 @@ class TestEnhancedMockDUT:
             "dut.mem[0]": Mock,
             "dut.mem[1]": Mock,
             "dut.mem[2]": Mock,
-            "dut.mem[3]": Mock
+            "dut.mem[3]": Mock,
         }
 
         mock_dut = create_mock_dut_from_hierarchy(hierarchy)
@@ -759,7 +759,7 @@ class TestEnhancedMockDUT:
         # Should create array-like access
         # Note: This tests the basic functionality, real array access
         # would require more sophisticated implementation
-        assert hasattr(mock_dut, 'mem')
+        assert hasattr(mock_dut, "mem")
 
 
 class TestMockingIntegration:
@@ -813,8 +813,8 @@ class TestMockingIntegration:
 
         # Check specific changes
         data_changes = data_signal._value_history.history
-        assert data_changes[0]['new_value'] == 0x10
-        assert data_changes[1]['new_value'] == 0x20
+        assert data_changes[0]["new_value"] == 0x10
+        assert data_changes[1]["new_value"] == 0x20
 
     def test_mock_dut_comprehensive(self):
         """Test comprehensive MockDUT functionality."""
@@ -830,15 +830,15 @@ class TestMockingIntegration:
             "dut.memory.we": Mock,
             "dut.bus": Mock,
             "dut.bus.req": Mock,
-            "dut.bus.ack": Mock
+            "dut.bus.ack": Mock,
         }
 
         mock_dut = create_mock_dut_from_hierarchy(hierarchy)
 
         # Test nested access
-        assert hasattr(mock_dut, 'cpu')
-        assert hasattr(mock_dut, 'memory')
-        assert hasattr(mock_dut, 'bus')
+        assert hasattr(mock_dut, "cpu")
+        assert hasattr(mock_dut, "memory")
+        assert hasattr(mock_dut, "bus")
 
         # Test signal operations
         mock_dut.cpu.clk.value = 1

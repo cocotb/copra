@@ -53,8 +53,8 @@ DOCS_DIR = HERE / "docs"
 
 # Cocotb installation options
 COCOTB_LOCAL_WHEEL = os.environ.get("COCOTB_LOCAL_WHEEL")  # Path to local cocotb wheel
-COCOTB_LOCAL_PATH = os.environ.get("COCOTB_LOCAL_PATH")    # Path to local cocotb source
-COCOTB_CACHE_DIR = HERE / ".nox" / "cocotb_cache"          # Cache directory for built wheels
+COCOTB_LOCAL_PATH = os.environ.get("COCOTB_LOCAL_PATH")  # Path to local cocotb source
+COCOTB_CACHE_DIR = HERE / ".nox" / "cocotb_cache"  # Cache directory for built wheels
 
 
 def get_cocotb_install_spec(session=None):
@@ -91,6 +91,7 @@ def get_cocotb_install_spec(session=None):
             else:
                 # Fallback to system Python if no session
                 import sys
+
                 major, minor = sys.version_info.major, sys.version_info.minor
                 python_version = f"{major}.{minor}"
                 python_tag = f"{major}{minor}"
@@ -100,9 +101,9 @@ def get_cocotb_install_spec(session=None):
             for wheel_file in wheel_files:
                 wheel_name = wheel_file.name
                 is_compatible = (
-                    "py3-none-any" in wheel_name or
-                    "py2.py3-none-any" in wheel_name or
-                    f"cp{python_tag}" in wheel_name
+                    "py3-none-any" in wheel_name
+                    or "py2.py3-none-any" in wheel_name
+                    or f"cp{python_tag}" in wheel_name
                 )
                 if is_compatible:
                     compatible_wheels.append(wheel_file)
@@ -144,9 +145,9 @@ def install_cocotb_and_cache(session, cocotb_spec):
                 for wheel_file in wheel_files:
                     wheel_name = wheel_file.name
                     is_compatible = (
-                        "py3-none-any" in wheel_name or
-                        "py2.py3-none-any" in wheel_name or
-                        f"cp{python_tag}" in wheel_name
+                        "py3-none-any" in wheel_name
+                        or "py2.py3-none-any" in wheel_name
+                        or f"cp{python_tag}" in wheel_name
                     )
                     if is_compatible:
                         compatible_wheels.append(wheel_file)
@@ -171,11 +172,15 @@ def install_cocotb_and_cache(session, cocotb_spec):
 
             # Build the wheel directly in the cache directory
             session.run(
-                "python", "-m", "pip", "wheel",
+                "python",
+                "-m",
+                "pip",
+                "wheel",
                 "--no-deps",
-                "--wheel-dir", str(COCOTB_CACHE_DIR),
+                "--wheel-dir",
+                str(COCOTB_CACHE_DIR),
                 cocotb_spec,
-                external=True
+                external=True,
             )
 
             # Find the built wheel in cache directory
@@ -214,10 +219,13 @@ def install_with_constraints(session, *args, **kwargs):
     other_args = []
 
     for arg in args:
-        if (isinstance(arg, str) and
-            (arg.startswith("git+https://github.com/cocotb/cocotb") or
-             "cocotb" in arg and arg.endswith(".whl") or
-             arg.startswith("-e") and "cocotb" in arg)):
+        if isinstance(arg, str) and (
+            arg.startswith("git+https://github.com/cocotb/cocotb")
+            or "cocotb" in arg
+            and arg.endswith(".whl")
+            or arg.startswith("-e")
+            and "cocotb" in arg
+        ):
             cocotb_spec = arg
         else:
             other_args.append(arg)
@@ -303,7 +311,8 @@ def test(session):
         "pytest",
         "--cov=src",
         "--cov-report=term-missing",
-        "-n", "auto",
+        "-n",
+        "auto",
         *session.posargs,
         "tests",
     )
@@ -331,8 +340,10 @@ def docs(session):
 
     session.run(
         "sphinx-build",
-        "-b", "html",
-        "-d", f"{build_dir}/doctrees",
+        "-b",
+        "html",
+        "-d",
+        f"{build_dir}/doctrees",
         "docs/source",
         f"{build_dir}/html",
     )
@@ -361,8 +372,7 @@ def stubgen_example(session):
 
     session.log("Stub generator CLI is working correctly!")
     session.log(
-        "To use with a real testbench, run: "
-        "copra your_testbench_module --outfile stubs/dut.pyi"
+        "To use with a real testbench, run: " "copra your_testbench_module --outfile stubs/dut.pyi"
     )
 
 
@@ -392,16 +402,23 @@ def build_cocotb_wheels_all(session):
     )
 
     session.run(
-        "python", "-m", "pip", "wheel",
+        "python",
+        "-m",
+        "pip",
+        "wheel",
         "--no-deps",
-        "--wheel-dir", str(COCOTB_CACHE_DIR),
+        "--wheel-dir",
+        str(COCOTB_CACHE_DIR),
         "git+https://github.com/cocotb/cocotb.git",
-        external=True
+        external=True,
     )
 
     # List created wheels for this Python version
-    wheels = [w for w in COCOTB_CACHE_DIR.glob("cocotb-*.whl")
-              if f"cp{session.python.replace('.', '')}" in w.name]
+    wheels = [
+        w
+        for w in COCOTB_CACHE_DIR.glob("cocotb-*.whl")
+        if f"cp{session.python.replace('.', '')}" in w.name
+    ]
     if wheels:
         latest_wheel = max(wheels, key=lambda p: p.stat().st_mtime)
         session.log(f"Successfully built wheel for Python {session.python}: {latest_wheel}")
@@ -434,11 +451,15 @@ def build_cocotb_wheel(session):
     session.log(f"This wheel will be compatible with Python {session.python}")
 
     session.run(
-        "python", "-m", "pip", "wheel",
+        "python",
+        "-m",
+        "pip",
+        "wheel",
         "--no-deps",
-        "--wheel-dir", str(COCOTB_CACHE_DIR),
+        "--wheel-dir",
+        str(COCOTB_CACHE_DIR),
         "git+https://github.com/cocotb/cocotb.git",
-        external=True
+        external=True,
     )
 
     # List created wheels

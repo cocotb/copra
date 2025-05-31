@@ -4,6 +4,7 @@
 
 from cocotb.handle import (
     HierarchyObject,
+    SimHandleBase,
 )
 
 class Minimal(HierarchyObject):
@@ -12,21 +13,21 @@ class Minimal(HierarchyObject):
     This class provides typed access to the DUT hierarchy,
     enabling IDE autocompletion and static type checking.
 
-    Sub-modules:
-        clk: Clk (hierarchical module)
-        data_in: DataIn (hierarchical module)
-        data_out: DataOut (hierarchical module)
-        minimal: Minimal (hierarchical module)
-        rst_n: RstN (hierarchical module)
+    Signals:
+        clk: SimHandleBase
+        data_in: SimHandleBase
+        data_out: SimHandleBase
+        minimal: SimHandleBase
+        rst_n: SimHandleBase
 
     """
 
-    # Sub-module attributes
-    clk: HierarchyObject
-    data_in: HierarchyObject
-    data_out: HierarchyObject
-    minimal: Minimal
-    rst_n: HierarchyObject
+    # Signal attributes
+    clk: SimHandleBase
+    data_in: SimHandleBase
+    data_out: SimHandleBase
+    minimal: SimHandleBase
+    rst_n: SimHandleBase
 
 # Type alias for the main DUT
 DutType = Minimal

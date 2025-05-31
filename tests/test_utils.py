@@ -26,7 +26,6 @@ class TestGetPythonTypeForHandle:
             "LogicArray": Mock(__name__="LogicArray"),
             "HierarchyObject": Mock(__name__="HierarchyObject"),
             "HierarchyArrayObject": Mock(__name__="HierarchyArrayObject"),
-            "SimHandleBase": Mock(__name__="SimHandleBase"),
             "RealObject": Mock(__name__="RealObject"),
             "EnumObject": Mock(__name__="EnumObject"),
             "IntegerObject": Mock(__name__="IntegerObject"),
@@ -46,8 +45,7 @@ class TestGetPythonTypeForHandle:
 
         for type_name, mock_type in fallback_types.items():
             result = get_python_type_for_handle(mock_type)
-            assert result == "SimHandleBase", \
-                    f"Expected {type_name} to fall back to SimHandleBase"
+            assert result == "SimHandleBase", f"Expected {type_name} to fall back to SimHandleBase"
 
     def test_unknown_type(self) -> None:
         """Test mapping of unknown handle types."""
@@ -107,7 +105,7 @@ class TestFormatDocstring:
         And some more content."""
 
         result = format_docstring(doc, indent=4)
-        lines = result.split('\n')
+        lines = result.split("\n")
 
         # Check that all lines start with the correct indentation
         for line in lines:

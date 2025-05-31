@@ -10,20 +10,23 @@ integration as specified in the design document.
 """
 
 import os
-import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
-import time
+from typing import Any, Dict, List, Optional, Callable
 
 try:
-    import cocotb
-    from cocotb.handle import HierarchyObject
+    from cocotb.handle import HierarchyObject  # type: ignore[import-untyped]
+
     COCOTB_AVAILABLE = True
 except ImportError:
     COCOTB_AVAILABLE = False
-    
-    class HierarchyObject:
+
+    class MockHierarchyObject:
+        """Mock HierarchyObject when cocotb is not available."""
+
         pass
+    
+    # Use the mock as HierarchyObject when cocotb is not available
+    HierarchyObject = MockHierarchyObject
 
 
 class CocotbIntegration:
@@ -81,9 +84,13 @@ class CocotbIntegration:
             print(f"[copra] Warning: Failed to generate stubs for test {test_name}: {e}")
             return None
 
-    def generate_makefile_integration(self, makefile_path: str = "Makefile", 
-                                     top_module: str = None, sources: List[str] = None, 
-                                     simulator: str = None) -> str:
+    def generate_makefile_integration(
+        self,
+        makefile_path: str = "Makefile",
+        top_module: Optional[str] = None,
+        sources: Optional[List[str]] = None,
+        simulator: Optional[str] = None,
+    ) -> str:
         """Generate Makefile integration for automatic stub generation.
 
         Args:
@@ -100,18 +107,20 @@ class CocotbIntegration:
         """
         try:
             makefile = Path(makefile_path)
-            
+
             # Generate makefile content
-            integration_content = f"""
+            integration_content = """
 # Copra stub generation integration
 .PHONY: copra-stubs
 copra-stubs:
 \t@echo "Generating copra stubs..."
 """
-            
+
             if sources and top_module:
                 sources_str = " ".join(sources)
-                integration_content += f"\t@python -m copra --sources {sources_str} --top {top_module}"
+                integration_content += (
+                    f"\t@python -m copra --sources {sources_str} --top {top_module}"
+                )
                 if simulator:
                     integration_content += f" --simulator {simulator}"
                 integration_content += "\n"
@@ -122,14 +131,14 @@ copra-stubs:
 # Add copra-stubs as dependency to test targets
 test: copra-stubs
 """
-            
+
             if makefile.exists():
-                with open(makefile, 'a') as f:
+                with open(makefile, "a") as f:
                     f.write(integration_content)
-                print(f"[copra] Added Makefile integration to {makefile_path}")
-            
+                    print(f"[copra] Added Makefile integration to {makefile_path}")
+
             return integration_content
-            
+
         except Exception as e:
             print(f"[copra] Warning: Failed to generate Makefile integration: {e}")
             return ""
@@ -179,7 +188,7 @@ async def test_{top_module}(dut):
 def setup_automatic_stub_generation(
     output_dir: str = "stubs",
     enable_for_all_tests: bool = True,
-    stub_naming_pattern: str = "{test_name}_dut.pyi"
+    stub_naming_pattern: str = "{test_name}_dut.pyi",
 ) -> None:
     """Set up automatic stub generation for all cocotb tests.
 
@@ -198,13 +207,13 @@ def setup_automatic_stub_generation(
     integration.setup_test_hooks()
 
     # Store configuration for later use
-    os.environ['COPRA_AUTO_GENERATE'] = str(enable_for_all_tests)
-    os.environ['COPRA_OUTPUT_DIR'] = output_dir
-    os.environ['COPRA_NAMING_PATTERN'] = stub_naming_pattern
+    os.environ["COPRA_AUTO_GENERATE"] = str(enable_for_all_tests)
+    os.environ["COPRA_OUTPUT_DIR"] = output_dir
+    os.environ["COPRA_NAMING_PATTERN"] = stub_naming_pattern
 
 
-def cocotb_test_wrapper(test_func):
-    """Decorator to wrap cocotb tests with automatic stub generation.
+def cocotb_test_wrapper(test_func: Callable[..., Any]) -> Callable[..., Any]:
+    """Wrap cocotb tests with automatic stub generation.
 
     This decorator can be applied to cocotb test functions to automatically
     generate stubs when the test runs.
@@ -230,23 +239,25 @@ def cocotb_test_wrapper(test_func):
 
     @functools.wraps(test_func)
     async def wrapper(dut: Any, *args: Any, **kwargs: Any) -> Any:
-        """Wrapper function that generates stubs before running the test."""
+        """Generate stubs before running the test."""
         # Check if automatic generation is enabled
-        auto_generate = os.environ.get('COPRA_AUTO_GENERATE', 'True').lower() == 'true'
-        
+        auto_generate = os.environ.get("COPRA_AUTO_GENERATE", "True").lower() == "true"
+
         if auto_generate:
             try:
-                output_dir = os.environ.get('COPRA_OUTPUT_DIR', 'stubs')
-                pattern = os.environ.get('COPRA_NAMING_PATTERN', '{test_name}_dut.pyi')
-                
+                output_dir = os.environ.get("COPRA_OUTPUT_DIR", "stubs")
+                os.environ.get("COPRA_NAMING_PATTERN", "{test_name}_dut.pyi")
+
                 integration = CocotbIntegration(output_dir=output_dir)
                 test_name = test_func.__name__
                 stub_file = integration.generate_stubs_for_test(dut, test_name)
-                
+
                 if stub_file:
                     print(f"[copra] Generated stubs for test {test_name}: {stub_file}")
             except Exception as e:
-                print(f"[copra] Warning: Failed to generate stubs for test {test_func.__name__}: {e}")
+                print(
+                    f"[copra] Warning: Failed to generate stubs for test {test_func.__name__}: {e}"
+                )
 
         # Run the original test
         return await test_func(dut, *args, **kwargs)
@@ -269,7 +280,7 @@ class RunnerIntegration:
         self.generated_stubs: List[str] = []
 
     def pre_test_hook(self, test_name: str, dut: HierarchyObject) -> None:
-        """Hook called before each test runs.
+        """Call before each test runs.
 
         Args:
         ----
@@ -279,7 +290,7 @@ class RunnerIntegration:
         """
         try:
             from .core import create_stub_from_dut
-            
+
             stub_file = f"stubs/{test_name}_dut.pyi"
             create_stub_from_dut(dut, stub_file)
             self.generated_stubs.append(stub_file)
@@ -288,7 +299,7 @@ class RunnerIntegration:
             print(f"[copra] Warning: Pre-test stub generation failed: {e}")
 
     def post_test_hook(self, test_name: str, test_result: Any) -> None:
-        """Hook called after each test completes.
+        """Call after each test completes.
 
         Args:
         ----
@@ -302,15 +313,15 @@ class RunnerIntegration:
     def generate_test_summary(self) -> Dict[str, Any]:
         """Generate a summary of all stub generation activities.
 
-        Returns:
+        Returns
         -------
             Dictionary containing summary information.
 
         """
         return {
-            'total_stubs_generated': len(self.generated_stubs),
-            'generated_files': self.generated_stubs,
-            'runner_type': self.runner_type
+            "total_stubs_generated": len(self.generated_stubs),
+            "generated_files": self.generated_stubs,
+            "runner_type": self.runner_type,
         }
 
 
@@ -328,11 +339,11 @@ def integrate_with_makefile(makefile_path: str = "Makefile") -> None:
         return
 
     # Read existing Makefile
-    with open(makefile, 'r') as f:
+    with open(makefile) as f:
         content = f.read()
 
     # Check if copra integration is already present
-    if 'copra' in content.lower():
+    if "copra" in content.lower():
         print("[copra] Makefile already contains copra integration")
         return
 
@@ -355,7 +366,7 @@ test: generate-stubs
 """
 
     # Append to Makefile
-    with open(makefile, 'a') as f:
+    with open(makefile, "a") as f:
         f.write(copra_targets)
 
     print(f"[copra] Added copra integration to {makefile_path}")
@@ -367,7 +378,7 @@ def create_copra_config(
     output_dir: str = "stubs",
     max_depth: int = 50,
     include_constants: bool = False,
-    performance_mode: bool = False
+    performance_mode: bool = False,
 ) -> None:
     """Create a copra configuration file.
 
@@ -402,7 +413,7 @@ naming_pattern = "{{test_name}}_dut.pyi"
 makefile_integration = true
 """
 
-    with open(config_path, 'w') as f:
+    with open(config_path, "w") as f:
         f.write(config_content)
 
     print(f"[copra] Created configuration file: {config_path}")
@@ -425,17 +436,18 @@ def load_copra_config(config_path: str = ".copra.toml") -> Dict[str, Any]:
         return {}
 
     try:
-        import tomllib
-        with open(config_file, 'rb') as f:
-            return tomllib.load(f)
+        import tomllib  # type: ignore[import-not-found]
     except ImportError:
         try:
-            import tomli
-            with open(config_file, 'rb') as f:
-                return tomli.load(f)
+            import tomli as tomllib
         except ImportError:
             print("[copra] Warning: TOML library not available, using default configuration")
             return {}
+
+    try:
+        with open(config_file, "rb") as f:
+            config_data: Dict[str, Any] = tomllib.load(f)
+            return config_data
     except Exception as e:
         print(f"[copra] Warning: Failed to load configuration: {e}")
-        return {} 
+        return {}

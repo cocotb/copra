@@ -8,17 +8,26 @@ This module provides template-based generation capabilities and enhanced
 documentation generation as specified in the design document.
 """
 
-import time
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, Sequence, Iterator
-from dataclasses import dataclass
 import re
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-from cocotb.handle import HierarchyObject
+try:
+    from cocotb.handle import HierarchyObject  # type: ignore[import-untyped]
+    
+    COCOTB_AVAILABLE = True
+except ImportError:
+    COCOTB_AVAILABLE = False
+    
+    class HierarchyObject:  # type: ignore[no-redef]
+        """Mock HierarchyObject when cocotb is not available."""
+        pass
 
+from ._version import __version__
 from .core import discover_hierarchy
 from .utils import to_capwords
-from ._version import __version__
 
 
 @dataclass
@@ -26,6 +35,7 @@ class StubGenerationOptions:
     """Configuration options for stub generation.
 
     Args:
+    ----
         flat_hierarchy: Whether to generate a flat hierarchy or nested classes.
         include_metadata: Whether to include signal metadata in docstrings.
         include_arrays: Whether to generate array support classes.
@@ -34,6 +44,7 @@ class StubGenerationOptions:
         class_prefix: Prefix to add to generated class names.
         class_suffix: Suffix to add to generated class names.
         output_format: Output format ("pyi" or "py").
+
     """
 
     flat_hierarchy: bool = False
@@ -53,7 +64,9 @@ class StubGenerator:
         """Initialize stub generator with options.
 
         Args:
+        ----
             options: Configuration options for stub generation.
+
         """
         self.options = options or StubGenerationOptions()
         self.template = StubTemplate()
@@ -62,35 +75,59 @@ class StubGenerator:
         """Generate a type stub from a hierarchy dictionary.
 
         Args:
+        ----
             hierarchy: DUT hierarchy dictionary.
             module_name: Name of the top-level module.
 
         Returns:
+        -------
             Generated stub file content.
+
         """
         content = []
 
+        # Determine which imports are actually needed
+        needed_imports = self._analyze_needed_imports(hierarchy)
+
         # Add header based on output format
         if self.options.output_format == "py":
-            imports = [
-                "from typing import Sequence, Iterator, cast, TYPE_CHECKING",
-                "from cocotb.handle import HierarchyObject",
+            imports = []
+            if needed_imports["typing"]:
+                imports.append(f"from typing import {', '.join(sorted(needed_imports['typing']))}")
+            if needed_imports["cocotb"]:
+                imports.append(
+                    f"from cocotb.handle import {', '.join(sorted(needed_imports['cocotb']))}"
+                )
+            imports.extend([
                 "",
                 "if TYPE_CHECKING:",
                 "    # Runtime implementation would be here",
                 "    pass",
-            ]
+            ])
         else:  # pyi format
-            imports = [
-                "from typing import Sequence, Iterator, cast",
-                "from cocotb.handle import HierarchyObject",
-            ]
-        
-        content.append(self.template.render_header(
-            module_name=module_name,
-            imports="\n".join(imports),
-            output_format=self.options.output_format
-        ))
+            imports = []
+            if needed_imports["typing"]:
+                typing_imports = sorted(needed_imports['typing'])
+                if len(typing_imports) == 1:
+                    imports.append(f"from typing import {typing_imports[0]}")
+                else:
+                    typing_join = ',\n    '.join(typing_imports)
+                    imports.append(f"from typing import (\n    {typing_join},\n)")
+            if needed_imports["cocotb"]:
+                cocotb_imports = sorted(needed_imports['cocotb'])
+                if len(cocotb_imports) == 1:
+                    imports.append(f"from cocotb.handle import {cocotb_imports[0]}")
+                else:
+                    cocotb_join = ',\n    '.join(cocotb_imports)
+                    imports.append(f"from cocotb.handle import (\n    {cocotb_join},\n)")
+
+        content.append(
+            self.template.render_header(
+                module_name=module_name,
+                imports="\n".join(imports),
+                output_format=self.options.output_format,
+            )
+        )
 
         # Generate array classes if needed
         if self.options.include_arrays:
@@ -105,6 +142,12 @@ class StubGenerator:
         else:
             content.extend(self._generate_nested_hierarchy(hierarchy, module_name))
 
+        # Add type alias for the main DUT
+        main_class_name = f"{self.options.class_prefix}{to_capwords(module_name)}{self.options.class_suffix}"
+        content.append("")
+        content.append("# Type alias for the main DUT")
+        content.append(f"DutType = {main_class_name}")
+
         # Add format-specific footer
         if self.options.output_format == "py":
             content.append("")
@@ -113,6 +156,49 @@ class StubGenerator:
 
         return "\n".join(content)
 
+    def _analyze_needed_imports(self, hierarchy: Dict[str, type]) -> Dict[str, Set[str]]:
+        """Analyze which imports are actually needed based on the hierarchy.
+
+        Args:
+        ----
+            hierarchy: DUT hierarchy dictionary.
+
+        Returns:
+        -------
+            Dictionary with sets of needed imports by module.
+
+        """
+        needed: Dict[str, Set[str]] = {
+            "typing": set(),
+            "cocotb": set(),
+        }
+
+        # Always need HierarchyObject for the main class
+        needed["cocotb"].add("HierarchyObject")
+
+        # Check if we need array-related imports
+        has_arrays = any(re.match(r"^.+\[\d+\]$", path) for path in hierarchy.keys())
+        if has_arrays and self.options.include_arrays:
+            needed["typing"].update(["Sequence", "Iterator"])
+
+        # Check what types are actually used
+        used_types = set()
+        for type_ in hierarchy.values():
+            if hasattr(type_, "__name__"):
+                used_types.add(type_.__name__)
+
+        # Add SimHandleBase only if it's actually used
+        if "SimHandleBase" in used_types:
+            needed["cocotb"].add("SimHandleBase")
+
+        # Add other cocotb types if used
+        cocotb_types = ["ModifiableObject", "LogicObject", "LogicArrayObject", "IntegerObject"]
+        for cocotb_type in cocotb_types:
+            if cocotb_type in used_types:
+                needed["cocotb"].add(cocotb_type)
+
+        return needed
+
     def _generate_array_classes(self, hierarchy: Dict[str, type]) -> List[str]:
         """Generate array support classes."""
         array_classes = []
@@ -120,42 +206,74 @@ class StubGenerator:
 
         # Find array patterns in hierarchy
         for path, type_ in hierarchy.items():
-            array_match = re.match(r'^(.+)\[(\d+)\]$', path)
+            array_match = re.match(r"^(.+)\[(\d+)\]$", path)
             if array_match:
                 base_path = array_match.group(1)
                 index = int(array_match.group(2))
                 if base_path not in arrays:
                     arrays[base_path] = {
-                        'indices': set(),
-                        'element_type': type_,
-                        'min_index': index,
-                        'max_index': index
+                        "indices": set(),
+                        "element_type": type_,
+                        "min_index": index,
+                        "max_index": index,
                     }
-                arrays[base_path]['indices'].add(index)
-                arrays[base_path]['min_index'] = min(arrays[base_path]['min_index'], index)
-                arrays[base_path]['max_index'] = max(arrays[base_path]['max_index'], index)
+                indices_set = arrays[base_path]["indices"]
+                if isinstance(indices_set, set):
+                    indices_set.add(index)
+                min_index = arrays[base_path]["min_index"]
+                if isinstance(min_index, int):
+                    arrays[base_path]["min_index"] = min(min_index, index)
+                max_index = arrays[base_path]["max_index"]
+                if isinstance(max_index, int):
+                    arrays[base_path]["max_index"] = max(max_index, index)
 
         # Generate array classes
         for base_path, info in arrays.items():
             class_name = f"{to_capwords(base_path.split('.')[-1])}Array"
-            array_classes.append(self.template.render_array(
-                class_name=class_name,
-                base_name=base_path,
-                element_type=info['element_type'].__name__,
-                size=len(info['indices']),
-                min_index=info['min_index'],
-                max_index=info['max_index']
-            ))
+            element_type = info["element_type"]
+            indices = info["indices"]
+            min_index = info["min_index"]
+            max_index = info["max_index"]
+
+            if (
+                hasattr(element_type, "__name__")
+                and isinstance(indices, set)
+                and isinstance(min_index, int)
+                and isinstance(max_index, int)
+            ):
+                array_classes.append(
+                    self.template.render_array(
+                        class_name=class_name,
+                        base_name=base_path,
+                        element_type=element_type.__name__,
+                        size=len(indices),
+                        min_index=min_index,
+                        max_index=max_index,
+                    )
+                )
 
         return array_classes
 
     def _generate_flat_hierarchy(self, hierarchy: Dict[str, type], module_name: str) -> List[str]:
         """Generate a flat hierarchy with all signals in one class."""
-        class_name = f"{self.options.class_prefix}{to_capwords(module_name)}{self.options.class_suffix}"
+        class_name = (
+            f"{self.options.class_prefix}{to_capwords(module_name)}{self.options.class_suffix}"
+        )
         attributes = []
 
         for path, type_ in sorted(hierarchy.items()):
-            type_annotation = type_.__name__
+            # Safe way to get type name, handling Mock objects
+            if hasattr(type_, '__name__'):
+                type_annotation = type_.__name__
+            elif hasattr(type_, '__class__'):
+                type_annotation = type_.__class__.__name__
+            else:
+                type_annotation = str(type(type_).__name__)
+            
+            # Use HierarchyObject for Mock objects to avoid import issues
+            if type_annotation == "Mock":
+                type_annotation = "HierarchyObject"
+                
             if self.options.typing_style == "legacy":
                 type_annotation = f"'{type_annotation}'"
 
@@ -163,11 +281,11 @@ class StubGenerator:
             if self.options.include_metadata:
                 comment = f"Signal at path: {path}"
 
-            attributes.append(self.template.render_signal(
-                name=path.replace(".", "_"),
-                type_annotation=type_annotation,
-                comment=comment
-            ))
+            attributes.append(
+                self.template.render_signal(
+                    name=path.replace(".", "_"), type_annotation=type_annotation, comment=comment
+                )
+            )
 
         docstring = ""
         if self.options.include_docstrings:
@@ -178,67 +296,180 @@ class StubGenerator:
     """
 '''
 
-        return [self.template.render_class(
-            class_name=class_name,
-            docstring=docstring,
-            attributes="\n".join(attributes)
-        )]
+        return [
+            self.template.render_class(
+                class_name=class_name, docstring=docstring, attributes="\n".join(attributes)
+            )
+        ]
 
     def _generate_nested_hierarchy(self, hierarchy: Dict[str, type], module_name: str) -> List[str]:
         """Generate a nested hierarchy with classes for each module."""
-        # Group signals by module
-        modules = {}
-        for path, type_ in hierarchy.items():
-            parts = path.split(".")
-            if len(parts) == 1:
-                if "" not in modules:
-                    modules[""] = {}
-                modules[""][parts[0]] = type_
-            else:
-                module = ".".join(parts[:-1])
-                if module not in modules:
-                    modules[module] = {}
-                modules[module][parts[-1]] = type_
-
-        # Generate classes for each module
         classes = []
-        for module_path, signals in sorted(modules.items()):
-            if module_path == "":
-                class_name = f"{self.options.class_prefix}{to_capwords(module_name)}{self.options.class_suffix}"
+        
+        # Group signals by module
+        modules: Dict[str, Dict[str, type]] = {}
+        
+        for path, obj_type in hierarchy.items():
+            parts = path.split(".")
+            
+            if len(parts) == 1:
+                # Top-level signal - could be the module itself or a direct signal
+                if parts[0] == module_name:
+                    # This is the top-level module reference, skip it
+                    continue
+                else:
+                    # This is a top-level signal
+                    module_key = "top"
+                    signal_name = parts[0]
             else:
-                class_name = f"{self.options.class_prefix}{to_capwords(module_path.split('.')[-1])}{self.options.class_suffix}"
-
-            attributes = []
-            for name, type_ in sorted(signals.items()):
-                type_annotation = type_.__name__
+                # Nested signal - group by first part (module name)
+                module_key = parts[0]
+                signal_name = parts[-1]  # Use the actual signal name, not the full path
+            
+            if module_key not in modules:
+                modules[module_key] = {}
+            
+            modules[module_key][signal_name] = obj_type
+        
+        # Generate the main DUT class first
+        main_class_name = (
+            f"{self.options.class_prefix}{to_capwords(module_name)}{self.options.class_suffix}"
+        )
+        
+        # Collect all top-level signals and sub-modules
+        top_signals = modules.get("top", {})
+        sub_modules = {}
+        
+        # Identify sub-modules from the hierarchy
+        for module_key in modules:
+            if module_key != "top":
+                sub_modules[module_key] = modules[module_key]
+        
+        # Generate main DUT class
+        attributes = []
+        
+        # Add top-level signals
+        if top_signals:
+            attributes.append("    # Top-level signals")
+            for signal_name, obj_type in sorted(top_signals.items()):
+                # Safe way to get type name, handling Mock objects
+                if hasattr(obj_type, '__name__'):
+                    type_annotation = obj_type.__name__
+                elif hasattr(obj_type, '__class__'):
+                    type_annotation = obj_type.__class__.__name__
+                else:
+                    type_annotation = str(type(obj_type).__name__)
+                
+                # Use SimHandleBase for Mock objects and unknown types
+                if type_annotation == "Mock" or type_annotation not in ["HierarchyObject", "SimHandleBase", "LogicObject", "IntegerObject", "RealObject", "StringObject"]:
+                    type_annotation = "SimHandleBase"
+                    
                 if self.options.typing_style == "legacy":
                     type_annotation = f"'{type_annotation}'"
 
                 comment = ""
                 if self.options.include_metadata:
-                    full_path = f"{module_path}.{name}" if module_path else name
-                    comment = f"Signal at path: {full_path}"
+                    comment = f"Top-level signal: {signal_name}"
 
-                attributes.append(self.template.render_signal(
-                    name=name,
-                    type_annotation=type_annotation,
-                    comment=comment
-                ))
+                attributes.append(
+                    self.template.render_signal(
+                        name=signal_name, type_annotation=type_annotation, comment=comment
+                    )
+                )
+            attributes.append("")
+        
+        # Add sub-module references
+        if sub_modules:
+            attributes.append("    # Sub-modules")
+            for sub_name in sorted(sub_modules.keys()):
+                # Create proper sub-module class name
+                sub_class_name = f"{to_capwords(sub_name.replace('u_', ''))}"
+                
+                comment = ""
+                if self.options.include_metadata:
+                    comment = f"Sub-module: {sub_name}"
 
+                attributes.append(
+                    self.template.render_signal(
+                        name=sub_name, type_annotation=sub_class_name, comment=comment
+                    )
+                )
+            attributes.append("")
+
+        # Generate main class docstring
+        docstring = ""
+        if self.options.include_docstrings:
+            total_signals = len(top_signals)
+            total_submodules = len(sub_modules)
+            docstring = f'''    """Type stub for {module_name} module.
+
+    This class provides type hints for the top-level DUT.
+    Top-level signals: {total_signals}
+    Sub-modules: {total_submodules}
+    """
+'''
+
+        # Add main DUT class
+        if attributes:
+            classes.append(
+                self.template.render_class(
+                    class_name=main_class_name, docstring=docstring, attributes="\n".join(attributes)
+                )
+            )
+
+        # Generate classes for each sub-module
+        for module_key, signals in sorted(sub_modules.items()):
+            sub_class_name = f"{to_capwords(module_key.replace('u_', ''))}"
+            
+            attributes = []
+            
+            # Generate signal attributes for this sub-module
+            if signals:
+                attributes.append("    # Module signals")
+                for signal_name, obj_type in sorted(signals.items()):
+                    # Safe way to get type name, handling Mock objects
+                    if hasattr(obj_type, '__name__'):
+                        type_annotation = obj_type.__name__
+                    elif hasattr(obj_type, '__class__'):
+                        type_annotation = obj_type.__class__.__name__
+                    else:
+                        type_annotation = str(type(obj_type).__name__)
+                    
+                    # Use SimHandleBase for Mock objects and unknown types
+                    if type_annotation == "Mock" or type_annotation not in ["HierarchyObject", "SimHandleBase", "LogicObject", "IntegerObject", "RealObject", "StringObject"]:
+                        type_annotation = "SimHandleBase"
+                        
+                    if self.options.typing_style == "legacy":
+                        type_annotation = f"'{type_annotation}'"
+
+                    comment = ""
+                    if self.options.include_metadata:
+                        comment = f"Signal in {module_key}: {signal_name}"
+
+                    attributes.append(
+                        self.template.render_signal(
+                            name=signal_name, type_annotation=type_annotation, comment=comment
+                        )
+                    )
+                attributes.append("")
+
+            # Generate sub-module docstring
             docstring = ""
             if self.options.include_docstrings:
-                docstring = f'''    """Type stub for {module_path if module_path else module_name} module.
+                docstring = f'''    """Type stub for {module_key} sub-module.
 
-    This class provides type hints for signals in this module.
+    This class provides type hints for signals in the {module_key} sub-module.
     Total signals: {len(signals)}
     """
 '''
 
-            classes.append(self.template.render_class(
-                class_name=class_name,
-                docstring=docstring,
-                attributes="\n".join(attributes)
-            ))
+            # Only generate class if it has content
+            if attributes:
+                classes.append(
+                    self.template.render_class(
+                        class_name=sub_class_name, docstring=docstring, attributes="\n".join(attributes)
+                    )
+                )
 
         return classes
 
@@ -286,14 +517,14 @@ Usage:
 
     def _get_class_template(self) -> str:
         """Get the class template for module definitions."""
-        return '''class {class_name}(HierarchyObject):
+        return """class {class_name}(HierarchyObject):
 {docstring}
 {attributes}
-'''
+"""
 
     def _get_signal_template(self) -> str:
         """Get the template for signal attributes."""
-        return '    {name}: {type_annotation}  # {comment}'
+        return "    {name}: {type_annotation}  # {comment}"
 
     def _get_array_template(self) -> str:
         """Get the template for array class definitions."""
@@ -306,19 +537,21 @@ Usage:
 
     def __getitem__(self, index: int) -> {element_type}:
         """Get array element by index."""
-        if not ({min_index} <= index <= {max_index}):
-            raise IndexError(f"Array index {{index}} out of bounds [{min_index}:{max_index}]")
+                        if not ({min_index} <= index <= {max_index}):
+                    raise IndexError(
+                        f"Array index {{index}} out of bounds [{min_index}:{max_index}]"
+                    )
         raise NotImplementedError("This is a type stub - use the actual DUT object")
-        
+
     def __len__(self) -> int:
         """Get array length."""
         return {size}
-        
+
     def __iter__(self) -> Iterator[{element_type}]:
         """Iterate over array elements."""
         for i in range({min_index}, {max_index} + 1):
             yield self[i]
-            
+
     def __contains__(self, item: object) -> bool:
         """Check if item is in the array."""
         try:
@@ -333,7 +566,7 @@ Usage:
     def min_index(self) -> int:
         """Get minimum valid index."""
         return {min_index}
-        
+
     @property
     def max_index(self) -> int:
         """Get maximum valid index."""
@@ -341,43 +574,41 @@ Usage:
 
 '''
 
-    def render_header(self, **kwargs) -> str:
+    def render_header(self, **kwargs: Any) -> str:
         """Render the header template with provided variables."""
-        from ._version import __version__
-
         defaults = {
-            'version': __version__,
-            'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
-            'template_name': self.template_name,
-            'module_name': 'dut',
-            'imports': 'from cocotb.handle import HierarchyObject',
-            'output_format': 'pyi'
+            "version": __version__,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "template_name": self.template_name,
+            "module_name": "dut",
+            "imports": "from cocotb.handle import HierarchyObject",
+            "output_format": "pyi",
         }
         defaults.update(kwargs)
 
         # Modify header based on output format
-        if defaults.get('output_format') == 'py':
+        if defaults.get("output_format") == "py":
             header_comment = "# This is an auto-generated Python module for cocotb testbench"
         else:
             header_comment = "# This is an auto-generated stub file for cocotb testbench"
 
         # Replace the first line in the template
         header_content = self.header_template.format(**defaults)
-        lines = header_content.split('\n')
+        lines = header_content.split("\n")
         if lines:
             lines[0] = header_comment
-        
-        return '\n'.join(lines)
 
-    def render_class(self, **kwargs) -> str:
+        return "\n".join(lines)
+
+    def render_class(self, **kwargs: Any) -> str:
         """Render a class template with provided variables."""
         return self.class_template.format(**kwargs)
 
-    def render_signal(self, **kwargs) -> str:
+    def render_signal(self, **kwargs: Any) -> str:
         """Render a signal template with provided variables."""
         return self.signal_template.format(**kwargs)
 
-    def render_array(self, **kwargs) -> str:
+    def render_array(self, **kwargs: Any) -> str:
         """Render an array template with provided variables."""
         return self.array_template.format(**kwargs)
 
@@ -395,8 +626,9 @@ class DocumentationGenerator:
         """
         self.format_type = format_type
 
-    def generate_interface_documentation(self, hierarchy: Dict[str, type],
-                                       output_file: str = None) -> str:
+    def generate_interface_documentation(
+        self, hierarchy: Dict[str, type], output_file: Optional[str] = None
+    ) -> str:
         """Generate interface documentation from hierarchy.
 
         Args:
@@ -418,8 +650,11 @@ class DocumentationGenerator:
         else:
             raise ValueError(f"Unsupported format: {self.format_type}")
 
-    def _generate_markdown_docs(self, hierarchy: Dict[str, type],
-                               output_file: str = None) -> str:
+    def _generate_markdown_docs(
+        self,
+        hierarchy: Dict[str, type],
+        output_file: Optional[str] = None,
+    ) -> str:
         """Generate Markdown documentation."""
         lines = [
             "# DUT Interface Documentation",
@@ -432,17 +667,17 @@ class DocumentationGenerator:
             f"with {len(hierarchy)} total objects in the hierarchy.",
             "",
             "## Hierarchy Structure",
-            ""
+            "",
         ]
 
         # Group by modules
-        modules = {}
-        signals = {}
+        modules: Dict[str, List[Tuple[str, type]]] = {}
+        signals: Dict[str, type] = {}
 
         for path, obj_type in hierarchy.items():
-            if '.' in path:
-                module_path = '.'.join(path.split('.')[:-1])
-                signal_name = path.split('.')[-1]
+            if "." in path:
+                module_path = ".".join(path.split(".")[:-1])
+                signal_name = path.split(".")[-1]
                 if module_path not in modules:
                     modules[module_path] = []
                 modules[module_path].append((signal_name, obj_type))
@@ -451,15 +686,23 @@ class DocumentationGenerator:
 
         # Document top-level signals
         if signals:
-            lines.extend([
-                "### Top-Level Signals",
-                "",
-                "| Signal Name | Type | Description |",
-                "|-------------|------|-------------|"
-            ])
+            lines.extend(
+                [
+                    "### Top-Level Signals",
+                    "",
+                    "| Signal Name | Type | Description |",
+                    "|-------------|------|-------------|",
+                ]
+            )
 
             for signal_name, obj_type in sorted(signals.items()):
-                type_name = obj_type.__name__
+                # Safe way to get type name, handling Mock objects
+                if hasattr(obj_type, '__name__'):
+                    type_name = obj_type.__name__
+                elif hasattr(obj_type, '__class__'):
+                    type_name = obj_type.__class__.__name__
+                else:
+                    type_name = str(type(obj_type).__name__)
                 description = f"{type_name} signal"
                 lines.append(f"| `{signal_name}` | {type_name} | {description} |")
 
@@ -467,15 +710,23 @@ class DocumentationGenerator:
 
         # Document modules
         for module_path, module_signals in sorted(modules.items()):
-            lines.extend([
-                f"### Module: `{module_path}`",
-                "",
-                "| Signal Name | Type | Description |",
-                "|-------------|------|-------------|"
-            ])
+            lines.extend(
+                [
+                    f"### Module: `{module_path}`",
+                    "",
+                    "| Signal Name | Type | Description |",
+                    "|-------------|------|-------------|",
+                ]
+            )
 
             for signal_name, obj_type in sorted(module_signals):
-                type_name = obj_type.__name__
+                # Safe way to get type name, handling Mock objects
+                if hasattr(obj_type, '__name__'):
+                    type_name = obj_type.__name__
+                elif hasattr(obj_type, '__class__'):
+                    type_name = obj_type.__class__.__name__
+                else:
+                    type_name = str(type(obj_type).__name__)
                 description = f"{type_name} signal"
                 lines.append(f"| `{signal_name}` | {type_name} | {description} |")
 
@@ -484,13 +735,16 @@ class DocumentationGenerator:
         content = "\n".join(lines)
 
         if output_file:
-            with open(output_file, 'w', encoding='utf-8') as f:
+            with open(output_file, "w", encoding="utf-8") as f:
                 f.write(content)
 
         return content
 
-    def _generate_rst_docs(self, hierarchy: Dict[str, type],
-                          output_file: str = None) -> str:
+    def _generate_rst_docs(
+        self,
+        hierarchy: Dict[str, type],
+        output_file: Optional[str] = None,
+    ) -> str:
         """Generate reStructuredText documentation."""
         lines = [
             "DUT Interface Documentation",
@@ -503,31 +757,37 @@ class DocumentationGenerator:
             "",
             f"This document describes the interface of the Device Under Test (DUT) "
             f"with {len(hierarchy)} total objects in the hierarchy.",
-            ""
+            "",
         ]
 
         # Add hierarchy information in RST format
         for path, obj_type in sorted(hierarchy.items()):
-            lines.extend([
-                f"``{path}``",
-                "^" * (len(path) + 4),
-                "",
-                f"Type: {obj_type.__name__}",
-                ""
-            ])
+            # Safe way to get type name, handling Mock objects
+            if hasattr(obj_type, '__name__'):
+                type_name = obj_type.__name__
+            elif hasattr(obj_type, '__class__'):
+                type_name = obj_type.__class__.__name__
+            else:
+                type_name = str(type(obj_type).__name__)
+            lines.extend(
+                [f"``{path}``", "^" * (len(path) + 4), "", f"Type: {type_name}", ""]
+            )
 
         content = "\n".join(lines)
 
         if output_file:
-            with open(output_file, 'w', encoding='utf-8') as f:
+            with open(output_file, "w", encoding="utf-8") as f:
                 f.write(content)
 
         return content
 
-    def _generate_html_docs(self, hierarchy: Dict[str, type],
-                           output_file: str = None) -> str:
+    def _generate_html_docs(
+        self,
+        hierarchy: Dict[str, type],
+        output_file: Optional[str] = None,
+    ) -> str:
         """Generate HTML documentation."""
-        timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         hierarchy_count = len(hierarchy)
 
         html_content = f"""<!DOCTYPE html>
@@ -564,10 +824,17 @@ class DocumentationGenerator:
 """
 
         for path, obj_type in sorted(hierarchy.items()):
-            category = "Module" if "Hierarchy" in obj_type.__name__ else "Signal"
+            # Safe way to get type name, handling Mock objects
+            if hasattr(obj_type, '__name__'):
+                type_name = obj_type.__name__
+            elif hasattr(obj_type, '__class__'):
+                type_name = obj_type.__class__.__name__
+            else:
+                type_name = str(type(obj_type).__name__)
+            category = "Module" if "Hierarchy" in type_name else "Signal"
             html_content += f"""        <tr>
             <td><code>{path}</code></td>
-            <td>{obj_type.__name__}</td>
+            <td>{type_name}</td>
             <td>{category}</td>
         </tr>
 """
@@ -577,14 +844,15 @@ class DocumentationGenerator:
 </html>"""
 
         if output_file:
-            with open(output_file, 'w', encoding='utf-8') as f:
+            with open(output_file, "w", encoding="utf-8") as f:
                 f.write(html_content)
 
         return html_content
 
 
-def generate_testbench_template(hierarchy_or_dut: Union[Dict[str, type], Any],
-                               output_file: Optional[str] = None) -> str:
+def generate_testbench_template(
+    hierarchy_or_dut: Union[Dict[str, type], Any], output_file: Optional[str] = None
+) -> str:
     """Generate a testbench template with proper typing.
 
     Args:
@@ -604,8 +872,9 @@ def generate_testbench_template(hierarchy_or_dut: Union[Dict[str, type], Any],
     else:
         # Assume it's a DUT object, discover its hierarchy
         from .core import discover_hierarchy
+
         hierarchy = discover_hierarchy(hierarchy_or_dut)
-        dut_name = getattr(hierarchy_or_dut, '_name', 'dut')
+        dut_name = getattr(hierarchy_or_dut, "_name", "dut")
 
     # Determine test name from output file or use default
     if output_file:
@@ -616,7 +885,7 @@ def generate_testbench_template(hierarchy_or_dut: Union[Dict[str, type], Any],
         # Write to file if output_file is provided
         output_path = Path(output_file)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(template)
     else:
         # Generate simple template (backward compatibility)
@@ -632,16 +901,13 @@ def _generate_simple_template(hierarchy: Dict[str, type], test_name: str) -> str
     dut_signals = []
     for path in hierarchy.keys():
         # Look for signals that are direct children of 'dut' (e.g., 'dut.clk', 'dut.rst_n')
-        if path.startswith('dut.') and path.count('.') == 1:
-            signal_name = path.split('.')[1]  # Extract signal name after 'dut.'
+        if path.startswith("dut.") and path.count(".") == 1:
+            signal_name = path.split(".")[1]  # Extract signal name after 'dut.'
             dut_signals.append(signal_name)
 
     # If no DUT signals found, look for any top-level signals
     if not dut_signals:
-        dut_signals = [
-            path for path in hierarchy.keys()
-            if '.' not in path and path != 'dut'
-        ]
+        dut_signals = [path for path in hierarchy.keys() if "." not in path and path != "dut"]
 
     template = f'''"""Auto-generated testbench template.
 
@@ -673,9 +939,9 @@ async def {test_name}(dut):
 
     # Add initialization for common signals
     for signal in dut_signals[:5]:  # Limit to first 5 signals
-        if 'clk' in signal.lower() or 'clock' in signal.lower():
+        if "clk" in signal.lower() or "clock" in signal.lower():
             template += f"    typed_dut.{signal}.value = 0\n"
-        elif 'rst' in signal.lower() or 'reset' in signal.lower():
+        elif "rst" in signal.lower() or "reset" in signal.lower():
             template += f"    typed_dut.{signal}.value = 1  # Assert reset\n"
         else:
             template += f"    typed_dut.{signal}.value = 0\n"
@@ -684,7 +950,7 @@ async def {test_name}(dut):
     if not dut_signals:
         template += "    typed_dut.dut.value = 0\n"
 
-    template += '''
+    template += """
     # Wait for a few clock cycles
     for _ in range(10):
         await Timer(10, units='ns')
@@ -694,13 +960,14 @@ async def {test_name}(dut):
 
     # Log test completion
     dut._log.info("Test completed successfully")
-'''
+"""
 
     return template
 
 
-def _generate_comprehensive_template(hierarchy: Dict[str, type],
-                                   dut_name: str, test_name: str) -> str:
+def _generate_comprehensive_template(
+    hierarchy: Dict[str, type], dut_name: str, test_name: str
+) -> str:
     """Generate a comprehensive testbench template with class structure."""
     # Find all signals
     signals = []
@@ -708,23 +975,23 @@ def _generate_comprehensive_template(hierarchy: Dict[str, type],
     reset_signals = []
 
     for path in hierarchy.keys():
-        if '.' in path:
-            parts = path.split('.')
+        if "." in path:
+            parts = path.split(".")
             if len(parts) == 2 and parts[0] == dut_name:
                 signal_name = parts[1]
                 signals.append(signal_name)
 
                 # Detect clock and reset signals
-                if 'clk' in signal_name.lower() or 'clock' in signal_name.lower():
+                if "clk" in signal_name.lower() or "clock" in signal_name.lower():
                     clock_signals.append(signal_name)
-                elif 'rst' in signal_name.lower() or 'reset' in signal_name.lower():
+                elif "rst" in signal_name.lower() or "reset" in signal_name.lower():
                     reset_signals.append(signal_name)
 
     # Use defaults if no clock/reset detected
     if not clock_signals:
-        clock_signals = ['clk']
+        clock_signals = ["clk"]
     if not reset_signals:
-        reset_signals = ['rst_n']
+        reset_signals = ["rst_n"]
 
     # Generate class name
     class_name = to_capwords(dut_name) + "TestBench"
@@ -849,8 +1116,7 @@ factory.generate_tests()
 
 # Legacy function for backward compatibility
 def generate_interface_documentation(
-    dut: HierarchyObject,
-    output_file: str = "interface.dutdoc.md"
+    dut: HierarchyObject, output_file: Optional[str] = "interface.dutdoc.md"
 ) -> str:
     """Generate markdown documentation for the DUT interface.
 
@@ -901,13 +1167,13 @@ including all signals, their types, and hierarchical organization.
         for signal in sorted(signals):
             # Determine signal direction and purpose based on naming conventions
             direction = "Unknown"
-            if any(pattern in signal.lower() for pattern in ['in', 'input']):
+            if any(pattern in signal.lower() for pattern in ["in", "input"]):
                 direction = "Input"
-            elif any(pattern in signal.lower() for pattern in ['out', 'output']):
+            elif any(pattern in signal.lower() for pattern in ["out", "output"]):
                 direction = "Output"
-            elif any(pattern in signal.lower() for pattern in ['clk', 'clock']):
+            elif any(pattern in signal.lower() for pattern in ["clk", "clock"]):
                 direction = "Clock"
-            elif any(pattern in signal.lower() for pattern in ['rst', 'reset']):
+            elif any(pattern in signal.lower() for pattern in ["rst", "reset"]):
                 direction = "Reset"
 
             doc_content += f"### `{signal}`\n\n"
@@ -916,11 +1182,15 @@ including all signals, their types, and hierarchical organization.
             doc_content += f"- **Hierarchy Level:** {signal.count('.') + 1}\n\n"
 
     # Write documentation to file
-    doc_path = Path(output_file)
-    doc_path.parent.mkdir(parents=True, exist_ok=True)
+    if output_file is not None:
+        doc_path = Path(output_file)
+        doc_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(doc_path, 'w', encoding='utf-8') as f:
-        f.write(doc_content)
+        with open(doc_path, "w", encoding="utf-8") as f:
+            f.write(doc_content)
 
-    print(f"[copra] Generated interface documentation: {doc_path}")
+        print(f"[copra] Generated interface documentation: {doc_path}")
+    else:
+        print("[copra] Generated interface documentation (no file output)")
+
     return doc_content
