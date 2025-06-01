@@ -383,31 +383,37 @@ class TestGenerateTestbenchTemplate:
         finally:
             Path(template_file).unlink()
 
-    def test_generate_testbench_template_clock_detection(self, mock_cpu_dut):
+    def test_generate_testbench_template_clock_detection(self, mock_cpu_dut, tmp_path):
         """Test that clock signals are properly detected."""
-        template = generate_testbench_template(mock_cpu_dut, None)  # Use None to avoid file creation
+        output_file = tmp_path / "test.py"
+        template = generate_testbench_template(mock_cpu_dut, str(output_file))
 
         # Should detect 'clk' as clock signal
         assert "self.dut.clk" in template
         assert "Clock(self.dut.clk" in template
+        assert output_file.exists()
 
-    def test_generate_testbench_template_reset_detection(self, mock_cpu_dut):
+    def test_generate_testbench_template_reset_detection(self, mock_cpu_dut, tmp_path):
         """Test that reset signals are properly detected."""
-        template = generate_testbench_template(mock_cpu_dut, None)  # Use None to avoid file creation
+        output_file = tmp_path / "test.py"
+        template = generate_testbench_template(mock_cpu_dut, str(output_file))
 
         # Should detect 'rst_n' as reset signal
         assert "self.dut.rst_n.value = 0" in template
         assert "self.dut.rst_n.value = 1" in template
+        assert output_file.exists()
 
-    def test_generate_testbench_template_alternative_naming(self, simple_mock_dut):
+    def test_generate_testbench_template_alternative_naming(self, simple_mock_dut, tmp_path):
         """Test template generation with alternative clock/reset naming."""
-        template = generate_testbench_template(simple_mock_dut, None)  # Use None to avoid file creation
+        output_file = tmp_path / "test.py"
+        template = generate_testbench_template(simple_mock_dut, str(output_file))
 
         # Should detect 'clock' and 'reset' signals
         assert "self.dut.clock" in template
         assert "self.dut.reset" in template
+        assert output_file.exists()
 
-    def test_generate_testbench_template_no_clock_reset(self):
+    def test_generate_testbench_template_no_clock_reset(self, tmp_path):
         """Test template generation when no clock/reset signals are detected."""
         no_clk_dut = MockHandle(
             "no_clk_dut",
@@ -418,21 +424,25 @@ class TestGenerateTestbenchTemplate:
             },
         )
 
-        template = generate_testbench_template(no_clk_dut, None)  # Use None to avoid file creation
+        output_file = tmp_path / "test.py"
+        template = generate_testbench_template(no_clk_dut, str(output_file))
 
         # Should use default names
         assert "self.dut.clk" in template  # Default clock
         assert "self.dut.rst_n" in template  # Default reset
+        assert output_file.exists()
 
-    def test_generate_testbench_template_signal_list(self, mock_cpu_dut):
+    def test_generate_testbench_template_signal_list(self, mock_cpu_dut, tmp_path):
         """Test that all signals are listed in the template."""
-        template = generate_testbench_template(mock_cpu_dut, None)  # Use None to avoid file creation
+        output_file = tmp_path / "test.py"
+        template = generate_testbench_template(mock_cpu_dut, str(output_file))
 
         # Check that signals are documented
         assert "# - dut.clk" in template
         assert "# - dut.rst_n" in template
         assert "# - dut.instr_addr" in template
         assert "# - dut.data_addr" in template
+        assert output_file.exists()
 
     def test_generate_testbench_template_directory_creation(self, mock_cpu_dut):
         """Test that output directories are created if they don't exist."""
@@ -477,7 +487,7 @@ class TestGenerateTestbenchTemplate:
         # Should detect clock and reset signals
         assert "clk" in template
         assert "rst_n" in template
-        
+
         # Should create output file
         assert output_file.exists()
 
@@ -490,15 +500,18 @@ class TestGenerateTestbenchTemplate:
         assert "TestBench" in template
         assert output_file.exists()
 
-    def test_generate_testbench_template_no_signals(self):
+    def test_generate_testbench_template_no_signals(self, tmp_path):
         """Test with DUT that has no signals."""
         # Create a mock DUT with no discoverable signals
         no_clk_dut = MockHandle("test_dut", HierarchyObject, {})
 
+        output_file = tmp_path / "test.py"
+        template = generate_testbench_template(no_clk_dut, str(output_file))
+
         # Should use default signals when none are detected
-        template = generate_testbench_template(no_clk_dut, None)  # Use None to avoid file creation
         assert "clk" in template  # Should use default clock signal
         assert "rst_n" in template  # Should use default reset signal
+        assert output_file.exists()
 
     def test_generate_testbench_template_class_structure(self, mock_cpu_dut, tmp_path):
         """Test that generated template has proper class structure."""
@@ -570,7 +583,7 @@ class TestGenerateInterfaceDocumentation:
         # Should contain signal type information
         assert "SimHandleBase" in documentation
         assert "HierarchyObject" in documentation
-        
+
         # Should create output file
         assert output_file.exists()
 
@@ -584,7 +597,7 @@ class TestGenerateInterfaceDocumentation:
         assert "rst_n" in documentation
         assert "instr_addr" in documentation
         assert "debug.enable" in documentation
-        
+
         # Should create output file
         assert output_file.exists()
 
@@ -596,7 +609,7 @@ class TestGenerateInterfaceDocumentation:
         # Should detect signal directions
         assert "Input" in documentation or "Output" in documentation
         assert "Clock" in documentation or "Reset" in documentation
-        
+
         # Should create output file
         assert output_file.exists()
 
@@ -608,7 +621,7 @@ class TestGenerateInterfaceDocumentation:
         # Should show hierarchy levels
         assert "Hierarchy Level:** 1" in documentation  # Top-level signals
         assert "Hierarchy Level:** 2" in documentation  # debug.enable, debug.step
-        
+
         # Should create output file
         assert output_file.exists()
 
@@ -618,11 +631,11 @@ class TestGenerateInterfaceDocumentation:
 
         output_file = tmp_path / "test.md"
         documentation = generate_interface_documentation(empty_dut, str(output_file))
-        
+
         # Should handle empty DUT gracefully
         assert "empty_dut" in documentation
         assert "Total Signals:** 1" in documentation  # Just the DUT itself
-        
+
         # Should create output file
         assert output_file.exists()
 

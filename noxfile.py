@@ -254,7 +254,8 @@ def lint(session):
         cocotb_spec,
     )
     session.run("ruff", *args)
-    session.run("mypy", "--disable-error-code=unused-ignore", "--disable-error-code=import-not-found", "src")
+    session.run("mypy", "--disable-error-code=unused-ignore",
+                "--disable-error-code=import-not-found", "src")
 
 
 @nox.session(python=PYTHON_VERSIONS[-1])
@@ -274,25 +275,25 @@ def examples(session):
 
     # Regenerate test files for all examples using the new templates
     examples_dir = HERE / "examples"
-    
+
     # First, let's regenerate the test files that were previously created
     # These are the files causing ruff errors
     test_files_to_regenerate = [
         "simple_dff/test_dff_generated.py",
-        "complex_cpu/test_cpu_generated.py", 
+        "complex_cpu/test_cpu_generated.py",
         "minimal/test_minimal_generated.py"
     ]
-    
+
     for test_file_path in test_files_to_regenerate:
         full_path = examples_dir / test_file_path
         if full_path.exists():
             session.log(f"Regenerating test file: {test_file_path}")
             # Remove the old file first
             full_path.unlink()
-            
+
             # Get the example name and DUT name from the path
             example_name = test_file_path.split("/")[0]
-            
+
             # Regenerate using our template generator
             # This is a simple regeneration - in practice you might want more sophisticated logic
             with session.chdir(examples_dir / example_name):
