@@ -88,7 +88,7 @@ from .simulation import (
 
 try:
     import cocotb  # type: ignore[import-untyped]
-    
+
     COCOTB_AVAILABLE = True
     COCOTB_VERSION = getattr(cocotb, "__version__", "unknown")
 except ImportError:
@@ -106,7 +106,7 @@ def _check_cocotb_version() -> None:
                 "Please install cocotb 2.0.0+ from source: "
                 "pip install git+https://github.com/cocotb/cocotb.git"
             )
-        
+
         print(f"[copra] Using cocotb version: {COCOTB_VERSION}")
 
         # Check minimum version requirement
@@ -121,14 +121,14 @@ def _check_cocotb_version() -> None:
         if COCOTB_VERSION == "unknown" or COCOTB_VERSION == "not available":
             print("[copra] cocotb version information not available")
             return
-        
+
         # Skip version check for mock objects (testing) - but only if it's actually a Mock class name
         if hasattr(cocotb, '__class__') and cocotb.__class__.__name__ == 'Mock':
             return
 
         try:
             cocotb_version = version.parse(COCOTB_VERSION)
-            
+
             # Handle development versions - 2.0.0.dev0 should be considered >= 2.0.0
             if cocotb_version.base_version < "2.0.0":
                 raise ImportError(
@@ -142,7 +142,7 @@ def _check_cocotb_version() -> None:
         except Exception as e:
             # If version parsing fails for other reasons, just warn and continue
             print(f"[copra] Warning: Could not parse cocotb version '{COCOTB_VERSION}': {e}")
-            
+
     except ImportError as e:
         if "copra requires cocotb" in str(e):
             raise  # Re-raise our version check error

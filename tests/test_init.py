@@ -1,7 +1,6 @@
 """Tests for the copra.__init__ module."""
 
 import sys
-from typing import Any, Mapping, Optional, Sequence
 from unittest.mock import Mock, patch
 
 import pytest
@@ -33,15 +32,15 @@ class TestVersionChecking:
         # Test the version checking logic directly by patching the global variables
         with patch("copra.COCOTB_AVAILABLE", True), \
              patch("copra.COCOTB_VERSION", "1.9.0"):
-            
+
             # Create a mock cocotb that doesn't look like a Mock object
             class FakeCocotb:
                 __version__ = "1.9.0"
-            
+
             with patch("copra.cocotb", FakeCocotb()):
                 # Import the function after patching
                 from copra import _check_cocotb_version
-                
+
                 with pytest.raises(ImportError, match="copra requires cocotb >= 2.0.0"):
                     _check_cocotb_version()
 
@@ -50,14 +49,14 @@ class TestVersionChecking:
         # Test with a development version that should pass
         with patch("copra.COCOTB_AVAILABLE", True), \
              patch("copra.COCOTB_VERSION", "2.0.0.dev0"):
-            
+
             # Create a mock cocotb that doesn't look like a Mock object
             class FakeCocotb:
                 __version__ = "2.0.0.dev0"
-            
+
             with patch("copra.cocotb", FakeCocotb()):
                 from copra import _check_cocotb_version
-                
+
                 # This should not raise an exception
                 try:
                     _check_cocotb_version()
@@ -69,7 +68,7 @@ class TestVersionChecking:
         # Test when cocotb is not available
         with patch("copra.COCOTB_AVAILABLE", False):
             from copra import _check_cocotb_version
-            
+
             with pytest.raises(ImportError, match="copra requires cocotb >= 2.0.0"):
                 _check_cocotb_version()
 
@@ -78,14 +77,14 @@ class TestVersionChecking:
         # Test when version is unknown
         with patch("copra.COCOTB_AVAILABLE", True), \
              patch("copra.COCOTB_VERSION", "unknown"):
-            
+
             # Create a mock cocotb that doesn't look like a Mock object
             class FakeCocotb:
                 __version__ = None
-            
+
             with patch("copra.cocotb", FakeCocotb()):
                 from copra import _check_cocotb_version
-                
+
                 # This should not raise an exception, just print a warning
                 try:
                     _check_cocotb_version()
@@ -97,14 +96,14 @@ class TestVersionChecking:
         # Test that specific version errors are properly raised
         with patch("copra.COCOTB_AVAILABLE", True), \
              patch("copra.COCOTB_VERSION", "1.8.0"):
-            
+
             # Create a mock cocotb that doesn't look like a Mock object
             class FakeCocotb:
                 __version__ = "1.8.0"
-            
+
             with patch("copra.cocotb", FakeCocotb()):
                 from copra import _check_cocotb_version
-                
+
                 with pytest.raises(ImportError, match="copra requires cocotb >= 2.0.0"):
                     _check_cocotb_version()
 

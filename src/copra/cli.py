@@ -12,7 +12,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Union
 
 from ._version import __version__
 from .core import (
@@ -779,10 +779,11 @@ class StubGenerator:
             Generated stub content
 
         """
+        from pathlib import Path
+        from typing import List, Union
+
         from .core import discover_hierarchy, generate_stub
         from .simulation import run_discovery_simulation
-        from pathlib import Path
-        from typing import Union, List
 
         # Convert sources to the expected type
         verilog_sources: List[Union[str, Path]] = [Path(source) for source in sources]

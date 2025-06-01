@@ -7,6 +7,7 @@ from unittest.mock import Mock, mock_open, patch
 
 import pytest
 from cocotb.handle import HierarchyObject, SimHandleBase
+
 from copra.generation import (
     DocumentationGenerator,
     StubTemplate,

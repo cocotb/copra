@@ -16,13 +16,14 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 try:
     from cocotb.handle import HierarchyObject  # type: ignore[import-untyped]
-    
+
     COCOTB_AVAILABLE = True
 except ImportError:
     COCOTB_AVAILABLE = False
-    
+
     class HierarchyObject:  # type: ignore[no-redef]
         """Mock HierarchyObject when cocotb is not available."""
+
         pass
 
 from ._version import __version__
@@ -97,15 +98,21 @@ class StubGenerator:
             if needed_imports["typing"]:
                 typing_imports.extend(sorted(needed_imports['typing']))
             imports.append(f"from typing import {', '.join(typing_imports)}")
-            
+
             if needed_imports["cocotb"]:
                 imports.append("")  # Blank line between import modules
                 cocotb_imports = sorted(needed_imports['cocotb'])
                 if len(cocotb_imports) == 1:
                     imports.append(f"from cocotb.handle import {cocotb_imports[0]}")
                 else:
-                    cocotb_join = ',\n    '.join(cocotb_imports)
-                    imports.append(f"from cocotb.handle import (\n    {cocotb_join},\n)")
+                    # Format long import lists properly
+                    imports.append("from cocotb.handle import (")
+                    for i, imp in enumerate(cocotb_imports):
+                        if i == len(cocotb_imports) - 1:
+                            imports.append(f"    {imp},")
+                        else:
+                            imports.append(f"    {imp},")
+                    imports.append(")")
             imports.extend([
                 "",
                 "if TYPE_CHECKING:",
@@ -120,9 +127,12 @@ class StubGenerator:
                 if len(cocotb_imports) == 1:
                     imports.append(f"from cocotb.handle import {cocotb_imports[0]}")
                 else:
-                    cocotb_join = ',\n    '.join(cocotb_imports)
-                    imports.append(f"from cocotb.handle import (\n    {cocotb_join},\n)")
-            
+                    # Format long import lists properly with proper line breaks
+                    imports.append("from cocotb.handle import (")
+                    for imp in cocotb_imports:
+                        imports.append(f"    {imp},")
+                    imports.append(")")
+
             if needed_imports["typing"]:
                 if needed_imports["cocotb"]:
                     imports.append("")  # Blank line between import modules
@@ -130,8 +140,11 @@ class StubGenerator:
                 if len(typing_imports) == 1:
                     imports.append(f"from typing import {typing_imports[0]}")
                 else:
-                    typing_join = ',\n    '.join(typing_imports)
-                    imports.append(f"from typing import (\n    {typing_join},\n)")
+                    # Format long import lists properly with proper line breaks
+                    imports.append("from typing import (")
+                    for imp in typing_imports:
+                        imports.append(f"    {imp},")
+                    imports.append(")")
 
         content.append(
             self.template.render_header(
@@ -162,9 +175,11 @@ class StubGenerator:
 
         # Add format-specific footer
         if self.options.output_format == "py":
-            content.append("")
-            content.append("# Runtime implementation would include actual signal handling")
-            content.append("# This is a stub file for type checking purposes")
+            content.extend([
+                "",
+                "# Runtime implementation would include actual signal handling",
+                "# This is a stub file for type checking purposes",
+            ])
 
         return "\n".join(content) + "\n"
 
@@ -281,23 +296,39 @@ class StubGenerator:
                 type_annotation = type_.__class__.__name__
             else:
                 type_annotation = str(type(type_).__name__)
-            
+
             # Use HierarchyObject for Mock objects to avoid import issues
             if type_annotation == "Mock":
                 type_annotation = "HierarchyObject"
-                
+
             if self.options.typing_style == "legacy":
                 type_annotation = f"'{type_annotation}'"
 
             comment = ""
             if self.options.include_metadata:
-                comment = f"Signal at path: {path}"
+                # Keep comments short to avoid line length issues
+                if len(path) > 60:
+                    comment = "Signal"
+                else:
+                    comment = f"Signal at path: {path}"
 
-            attributes.append(
-                self.template.render_signal(
-                    name=path.replace(".", "_"), type_annotation=type_annotation, comment=comment
-                )
+            # Create a Python-compliant variable name by replacing dots with underscores
+            # and converting to lowercase to avoid mixed case linting errors
+            variable_name = path.replace(".", "_").lower()
+
+            # Create the signal line and check length
+            signal_line = self.template.render_signal(
+                name=variable_name, type_annotation=type_annotation, comment=comment
             )
+
+            # If the line is too long, use a shorter comment
+            if len(signal_line) > 88:  # Standard line length limit
+                comment = "Signal" if self.options.include_metadata else ""
+                signal_line = self.template.render_signal(
+                    name=variable_name, type_annotation=type_annotation, comment=comment
+                )
+
+            attributes.append(signal_line)
 
         docstring = ""
         if self.options.include_docstrings:
@@ -308,23 +339,26 @@ class StubGenerator:
     """
 '''
 
+        # Ensure proper formatting of attributes
+        attributes_content = "\n".join(attributes) + "\n" if attributes else "    pass\n"
+
         return [
             self.template.render_class(
-                class_name=class_name, docstring=docstring, attributes="\n".join(attributes)
+                class_name=class_name, docstring=docstring, attributes=attributes_content
             )
         ]
 
     def _generate_nested_hierarchy(self, hierarchy: Dict[str, type], module_name: str) -> List[str]:
         """Generate a nested hierarchy with classes for each module level."""
         classes = []
-        
+
         # Analyze the hierarchy to understand the structure
         modules = self._analyze_hierarchy_structure(hierarchy, module_name)
-        
+
         # Generate classes for each module in the proper order
         for module_path, module_info in sorted(modules.items()):
             class_name = self._get_class_name_for_module(module_info["name"])
-            
+
             # Generate the module class
             self._generate_module_class_new(
                 class_name=class_name,
@@ -335,13 +369,13 @@ class StubGenerator:
                 classes=classes,
                 is_top_level=(module_path == module_name)
             )
-        
+
         return classes
 
     def _analyze_hierarchy_structure(self, hierarchy: Dict[str, type], module_name: str) -> Dict[str, Dict[str, Any]]:
         """Analyze hierarchy structure and group signals by module."""
         modules = {}
-        
+
         # Based on the simulation output, we know these are the hierarchical modules:
         # - cpu_top (HierarchyObject)
         # - cpu_top.u_clock_gen (HierarchyObject)
@@ -349,11 +383,11 @@ class StubGenerator:
         # - cpu_top.u_cpu_complex.u_dm_arbiter (HierarchyObject)
         # - cpu_top.u_cpu_complex.u_if_arbiter (HierarchyObject)
         # - cpu_top.u_csr_block (HierarchyObject)
-        
+
         # Since type information is lost during pickle serialization, we need to
         # identify hierarchical modules by analyzing the path structure
         known_hierarchical_paths = set()
-        
+
         # Find paths that have child paths (indicating they are modules)
         all_paths = set(hierarchy.keys())
         for path in all_paths:
@@ -362,17 +396,17 @@ class StubGenerator:
                 if other_path.startswith(path + ".") and other_path != path:
                     known_hierarchical_paths.add(path)
                     break
-        
+
         # For each identified module path, create a module entry
         for module_path in sorted(known_hierarchical_paths):
             module_name_only = module_path.split(".")[-1]
-            
+
             modules[module_path] = {
                 "name": module_name_only,
                 "signals": {},
                 "submodules": {}
             }
-            
+
             # Find signals and submodules that belong directly to this module
             for path, obj_type in hierarchy.items():
                 # Check if this signal belongs directly to the current module
@@ -383,7 +417,7 @@ class StubGenerator:
                         modules[module_path]["submodules"][signal_name] = obj_type
                     else:
                         modules[module_path]["signals"][signal_name] = obj_type
-        
+
         # Handle the top-level module specially
         if module_name not in modules:
             modules[module_name] = {
@@ -391,7 +425,7 @@ class StubGenerator:
                 "signals": {},
                 "submodules": {}
             }
-        
+
         # Find top-level signals and immediate submodules
         for path, obj_type in hierarchy.items():
             parts = path.split(".")
@@ -405,52 +439,74 @@ class StubGenerator:
                     modules[module_name]["submodules"][signal_name] = obj_type
                 else:
                     modules[module_name]["signals"][signal_name] = obj_type
-        
+
         return modules
 
     def _generate_module_class_new(self, class_name: str, module_name: str, module_path: str,
-                                  signals: Dict[str, type], submodules: Dict[str, type], 
+                                  signals: Dict[str, type], submodules: Dict[str, type],
                                   classes: List[str], is_top_level: bool = False) -> None:
         """Generate a class for a specific module with proper structure."""
         attributes = []
-        
+
         # Add signals
         if signals:
             if not is_top_level:
                 attributes.append("    # Module signals")
             for signal_name, obj_type in sorted(signals.items()):
                 type_annotation = self._get_safe_type_annotation(obj_type)
-                
+
                 if self.options.typing_style == "legacy":
                     type_annotation = f"'{type_annotation}'"
 
                 comment = ""
                 if self.options.include_metadata:
-                    comment = f"Signal in {module_name}: {signal_name}"
+                    # Keep comments short to avoid line length issues
+                    if len(module_name) > 20:
+                        comment = f"Signal: {signal_name}"
+                    else:
+                        comment = f"Signal in {module_name}: {signal_name}"
 
-                attributes.append(
-                    self.template.render_signal(
+                # Ensure the line isn't too long
+                signal_line = self.template.render_signal(
+                    name=signal_name, type_annotation=type_annotation, comment=comment
+                )
+
+                # If the line is too long, use a shorter comment
+                if len(signal_line) > 88:  # Standard line length limit
+                    comment = signal_name if self.options.include_metadata else ""
+                    signal_line = self.template.render_signal(
                         name=signal_name, type_annotation=type_annotation, comment=comment
                     )
-                )
+
+                attributes.append(signal_line)
+
             if signals:
                 attributes.append("")
-        
+
         # Add sub-modules
         if submodules:
             attributes.append("    # Sub-modules")
             for sub_name, obj_type in sorted(submodules.items()):
                 sub_class_name = self._get_class_name_for_module(sub_name)
-                
+
                 comment = ""
                 if self.options.include_metadata:
                     comment = f"Sub-module: {sub_name}"
 
-                attributes.append(
-                    self.template.render_signal(
+                # Ensure the line isn't too long
+                submodule_line = self.template.render_signal(
+                    name=sub_name, type_annotation=sub_class_name, comment=comment
+                )
+
+                # If the line is too long, use a shorter comment
+                if len(submodule_line) > 88:  # Standard line length limit
+                    comment = sub_name if self.options.include_metadata else ""
+                    submodule_line = self.template.render_signal(
                         name=sub_name, type_annotation=sub_class_name, comment=comment
                     )
-                )
+
+                attributes.append(submodule_line)
+
             if submodules:
                 attributes.append("")
 
@@ -458,11 +514,19 @@ class StubGenerator:
         docstring = ""
         if self.options.include_docstrings:
             if is_top_level:
-                description = f"Type stub for {module_name} module.\n\n    This class provides type hints for the top-level DUT."
+                description = (
+                    f"Type stub for {module_name} module.\n\n"
+                    "    This class provides type hints for the top-level DUT."
+                )
             else:
-                description = f"Type stub for {module_name} sub-module.\n\n    This class provides type hints for signals in the {module_name} sub-module."
-            
+                description = (
+                    f"Type stub for {module_name} sub-module.\n\n"
+                    f"    This class provides type hints for signals in the "
+                    f"{module_name} sub-module."
+                )
+
             docstring = f'''    """{description}
+
     Top-level signals: {len(signals)}
     Sub-modules: {len(submodules)}
     """
@@ -470,11 +534,19 @@ class StubGenerator:
 
         # Generate the class
         if attributes or is_top_level:
+            # Clean up attributes to ensure proper formatting
+            if attributes:
+                attributes_content = "\n".join(attributes)
+                # Remove any trailing empty lines
+                attributes_content = attributes_content.rstrip() + "\n"
+            else:
+                attributes_content = "    pass\n"
+
             classes.append(
                 self.template.render_class(
-                    class_name=class_name, 
-                    docstring=docstring, 
-                    attributes="\n".join(attributes) if attributes else "    pass"
+                    class_name=class_name,
+                    docstring=docstring,
+                    attributes=attributes_content
                 )
             )
 
@@ -495,12 +567,12 @@ class StubGenerator:
                 return True
         except ImportError:
             pass
-        
+
         # Fallback to string-based checking
         if hasattr(obj_type, '__name__'):
             type_name = obj_type.__name__
             return type_name in ["HierarchyObject", "ModifiableObject"] or "Hierarchy" in type_name
-        
+
         return False
 
     def _get_safe_type_annotation(self, obj_type: type) -> str:
@@ -511,11 +583,11 @@ class StubGenerator:
             type_annotation = obj_type.__class__.__name__
         else:
             type_annotation = str(type(obj_type).__name__)
-        
+
         # Map known cocotb types
         known_types = {
             "HierarchyObject": "HierarchyObject",
-            "SimHandleBase": "SimHandleBase", 
+            "SimHandleBase": "SimHandleBase",
             "LogicObject": "SimHandleBase",
             "LogicArrayObject": "SimHandleBase",
             "IntegerObject": "SimHandleBase",
@@ -523,7 +595,7 @@ class StubGenerator:
             "StringObject": "SimHandleBase",
             "ModifiableObject": "SimHandleBase"
         }
-        
+
         # Use SimHandleBase for Mock objects and unknown types, but preserve HierarchyObject
         if type_annotation == "Mock":
             return "SimHandleBase"
@@ -531,7 +603,7 @@ class StubGenerator:
             return "HierarchyObject"
         elif type_annotation not in known_types:
             return "SimHandleBase"
-        
+
         return known_types.get(type_annotation, "SimHandleBase")
 
 
@@ -573,7 +645,6 @@ Usage:
 """
 
 {imports}
-
 '''
 
     def _get_class_template(self) -> str:
@@ -598,10 +669,10 @@ Usage:
 
     def __getitem__(self, index: int) -> {element_type}:
         """Get array element by index."""
-                        if not ({min_index} <= index <= {max_index}):
-                    raise IndexError(
-                        f"Array index {{index}} out of bounds [{min_index}:{max_index}]"
-                    )
+        if not ({min_index} <= index <= {max_index}):
+            raise IndexError(
+                f"Array index {{index}} out of bounds [{min_index}:{max_index}]"
+            )
         raise NotImplementedError("This is a type stub - use the actual DUT object")
 
     def __len__(self) -> int:
@@ -632,7 +703,6 @@ Usage:
     def max_index(self) -> int:
         """Get maximum valid index."""
         return {max_index}
-
 '''
 
     def render_header(self, **kwargs: Any) -> str:
@@ -659,19 +729,49 @@ Usage:
         if lines:
             lines[0] = header_comment
 
-        return "\n".join(lines)
+        # Clean up lines to ensure no trailing whitespace
+        cleaned_lines = [line.rstrip() for line in lines]
+
+        return "\n".join(cleaned_lines)
 
     def render_class(self, **kwargs: Any) -> str:
         """Render a class template with provided variables."""
-        return self.class_template.format(**kwargs)
+        result = self.class_template.format(**kwargs)
+        # Clean up any extra blank lines and ensure proper formatting
+        lines = result.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            cleaned_lines.append(line.rstrip())
+
+        # Ensure the class ends with exactly one blank line
+        while cleaned_lines and not cleaned_lines[-1]:
+            cleaned_lines.pop()
+        cleaned_lines.append("")
+
+        return "\n".join(cleaned_lines)
 
     def render_signal(self, **kwargs: Any) -> str:
         """Render a signal template with provided variables."""
-        return self.signal_template.format(**kwargs)
+        # Handle empty comments gracefully
+        comment = kwargs.get('comment', '')
+        if comment:
+            return f"    {kwargs['name']}: {kwargs['type_annotation']}  # {comment}"
+        else:
+            return f"    {kwargs['name']}: {kwargs['type_annotation']}"
 
     def render_array(self, **kwargs: Any) -> str:
         """Render an array template with provided variables."""
-        return self.array_template.format(**kwargs)
+        result = self.array_template.format(**kwargs)
+        # Clean up any trailing whitespace and ensure proper formatting
+        lines = result.split('\n')
+        cleaned_lines = [line.rstrip() for line in lines]
+
+        # Ensure the class ends with exactly one blank line
+        while cleaned_lines and not cleaned_lines[-1]:
+            cleaned_lines.pop()
+        cleaned_lines.append("")
+
+        return "\n".join(cleaned_lines)
 
 
 class DocumentationGenerator:

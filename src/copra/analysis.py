@@ -12,7 +12,7 @@ import ast
 import re
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Union, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Union
 
 from cocotb.handle import HierarchyObject  # type: ignore[import-untyped]
 
@@ -224,7 +224,7 @@ def analyze_hierarchy_complexity(dut: Any) -> Dict[str, Any]:
 
     """
     from .core import HierarchyDict
-    
+
     hierarchy: HierarchyDict = discover_hierarchy(dut, max_depth=100, include_constants=True)
 
     analysis: Dict[str, Any] = {
@@ -303,11 +303,11 @@ def analyze_hierarchy_complexity(dut: Any) -> Dict[str, Any]:
                     current_max = array_dist[base_path]["max_index"]
                     if isinstance(current_max, int):
                         array_dist[base_path]["max_index"] = max(current_max, array_index)
-                    
+
                     indices_set = array_dist[base_path]["indices"]
                     if isinstance(indices_set, set):
                         indices_set.add(array_index)
-                
+
                 array_signals = analysis["array_signals"]
                 if isinstance(array_signals, dict) and base_name in array_signals:
                     signal_list = array_signals[base_name]
@@ -1064,22 +1064,22 @@ def analyze_hierarchy(hierarchy: Dict[str, type]) -> Dict[str, Any]:
     from unittest.mock import Mock
     mock_dut = Mock()
     mock_dut._name = "dut"
-    
+
     # Temporarily patch the discover_hierarchy function to return our hierarchy
     from . import core
     original_discover = core.discover_hierarchy
-    
+
     def mock_discover_hierarchy(dut: Any, **kwargs: Any) -> Dict[str, type]:
         return hierarchy
-    
+
     try:
         # Temporarily replace the function
         core.discover_hierarchy = mock_discover_hierarchy  # type: ignore[assignment]
-        
+
         # Detect design patterns
         patterns = detect_design_patterns(mock_dut)
 
-        # Analyze naming conventions  
+        # Analyze naming conventions
         naming_conventions = validate_naming_conventions(mock_dut)
     finally:
         # Restore original function

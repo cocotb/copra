@@ -11,7 +11,7 @@ from typing import Any, List, Optional, Set, Type
 # Print cocotb version for debugging
 try:
     import cocotb  # type: ignore[import-untyped]
-    
+
     COCOTB_AVAILABLE = True
     print(f"[copra.utils] Using cocotb version: {cocotb.__version__}")
 except (ImportError, AttributeError):

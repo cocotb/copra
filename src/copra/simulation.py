@@ -229,9 +229,9 @@ def extract_hierarchy(obj, path="", max_depth=10, current_depth=0):
     """Extract hierarchy information from a DUT object using proper cocotb introspection."""
     if current_depth >= max_depth:
         return {{}}
-    
+
     hierarchy = {{}}
-    
+
     try:
         # Add the current object to hierarchy if it has a path
         if path:
@@ -242,19 +242,19 @@ def extract_hierarchy(obj, path="", max_depth=10, current_depth=0):
                 "width": getattr(obj, "_width", 1) if hasattr(obj, "_width") else 1,
                 "is_hierarchical": isinstance(obj, HierarchyObject),
             }}
-        
+
         # Use cocotb's proper introspection methods
         if hasattr(obj, '_discover_all'):
             # Force discovery of all children
             obj._discover_all()
-        
+
         # Method 1: Try to iterate over the object (works for HierarchyObject)
         try:
             for child in obj:
                 child_name = getattr(child, "_name", "unknown")
                 if child_name and not child_name.startswith("_"):
                     full_path = f"{{path}}.{{child_name}}" if path else child_name
-                    
+
                     # Add this child to hierarchy
                     hierarchy[full_path] = {{
                         "name": child_name,
@@ -263,7 +263,7 @@ def extract_hierarchy(obj, path="", max_depth=10, current_depth=0):
                         "width": getattr(child, "_width", 1) if hasattr(child, "_width") else 1,
                         "is_hierarchical": isinstance(child, HierarchyObject),
                     }}
-                    
+
                     # Recursively explore if it's hierarchical
                     if isinstance(child, HierarchyObject) and current_depth < max_depth - 1:
                         sub_hierarchy = extract_hierarchy(child, full_path, max_depth, current_depth + 1)
@@ -281,7 +281,7 @@ def extract_hierarchy(obj, path="", max_depth=10, current_depth=0):
                             "width": getattr(handle, "_width", 1) if hasattr(handle, "_width") else 1,
                             "is_hierarchical": isinstance(handle, HierarchyObject),
                         }}
-                        
+
                         # Recursively explore if it's hierarchical
                         if isinstance(handle, HierarchyObject) and current_depth < max_depth - 1:
                             sub_hierarchy = extract_hierarchy(handle, full_path, max_depth, current_depth + 1)
@@ -293,20 +293,20 @@ def extract_hierarchy(obj, path="", max_depth=10, current_depth=0):
                     child_names = []
                     if hasattr(obj, '__dict__'):
                         child_names.extend([name for name in obj.__dict__.keys() if not name.startswith('_')])
-                    
+
                     # Also try dir() but filter carefully
                     for name in dir(obj):
-                        if (not name.startswith('_') and 
+                        if (not name.startswith('_') and
                             not callable(getattr(obj, name, None)) and
                             name not in child_names):
                             child_names.append(name)
-                    
+
                     # Try to access each potential child
                     for name in child_names:
                         try:
                             attr = getattr(obj, name)
                             # Check if this looks like a cocotb handle
-                            if (hasattr(attr, '_name') or hasattr(attr, '_path') or 
+                            if (hasattr(attr, '_name') or hasattr(attr, '_path') or
                                 hasattr(attr, 'value') or isinstance(attr, HierarchyObject)):
                                 full_path = f"{{path}}.{{name}}" if path else name
                                 hierarchy[full_path] = {{
@@ -316,7 +316,7 @@ def extract_hierarchy(obj, path="", max_depth=10, current_depth=0):
                                     "width": getattr(attr, "_width", 1) if hasattr(attr, "_width") else 1,
                                     "is_hierarchical": isinstance(attr, HierarchyObject),
                                 }}
-                                
+
                                 # Recursively explore if it's hierarchical
                                 if isinstance(attr, HierarchyObject) and current_depth < max_depth - 1:
                                     sub_hierarchy = extract_hierarchy(attr, full_path, max_depth, current_depth + 1)
@@ -329,7 +329,7 @@ def extract_hierarchy(obj, path="", max_depth=10, current_depth=0):
     except Exception as e:
         # Log the error but continue
         print(f"Warning: Error extracting hierarchy at {{path}}: {{e}}")
-    
+
     return hierarchy
 
 
@@ -353,28 +353,28 @@ async def discover_dut_hierarchy(dut):
 
     print(f"Starting hierarchy discovery for DUT: {{dut._name if hasattr(dut, '_name') else 'unknown'}}")
     print(f"DUT type: {{type(dut).__name__}}")
-    
+
     # Extract hierarchy information starting from the DUT
     hierarchy = extract_hierarchy(dut, "{top_module}", max_depth=10)
-    
+
     print(f"Discovered {{len(hierarchy)}} items in hierarchy")
-    
+
     # Print some debug info about what we found
     hierarchical_items = [path for path, info in hierarchy.items() if info.get("is_hierarchical", False)]
     signal_items = [path for path, info in hierarchy.items() if not info.get("is_hierarchical", False)]
-    
+
     print(f"Hierarchical objects: {{len(hierarchical_items)}}")
     for item in sorted(hierarchical_items)[:10]:  # Show first 10
         print(f"  - {{item}} ({{hierarchy[item]['type']}})")
     if len(hierarchical_items) > 10:
         print(f"  ... and {{len(hierarchical_items) - 10}} more")
-    
+
     print(f"Signal objects: {{len(signal_items)}}")
     for item in sorted(signal_items)[:10]:  # Show first 10
         print(f"  - {{item}} ({{hierarchy[item]['type']}})")
     if len(signal_items) > 10:
         print(f"  ... and {{len(signal_items) - 10}} more")
-    
+
     # Save hierarchy information to file
     dut_storage_path = os.environ.get("COPRA_DUT_STORAGE")
     if dut_storage_path:
@@ -421,32 +421,32 @@ async def discover_dut_hierarchy(dut):
             dut_storage_path = self._temp_dir / "dut_handle.pkl"
         else:
             raise SimulationError("No temporary directory available")
-            
+
         if dut_storage_path.exists():
             try:
                 with open(dut_storage_path, "rb") as f:
                     dut_info = pickle.load(f)
-                    
+
                 if dut_info.get("success") and "hierarchy" in dut_info:
                     # Create a mock DUT based on the discovered hierarchy
                     from unittest.mock import Mock
-                    
+
                     mock_dut = Mock()
                     mock_dut._name = dut_info["name"]
                     mock_dut._path = dut_info["path"]
                     mock_dut.__class__.__name__ = "MockHierarchyObject"
-                    
+
                     # Store the extracted hierarchy information directly on the mock DUT
                     # This will be used by the updated discover_hierarchy function
                     mock_dut._copra_hierarchy = dut_info["hierarchy"]
-                    
+
                     # Add hierarchy information as attributes for compatibility
                     hierarchy = dut_info["hierarchy"]
                     for path, info in hierarchy.items():
                         # Create nested mock structure
                         parts = path.split('.')
                         current = mock_dut
-                        
+
                         for i, part in enumerate(parts):
                             if not hasattr(current, part):
                                 sub_mock = Mock()
@@ -455,7 +455,7 @@ async def discover_dut_hierarchy(dut):
                                 sub_mock._width = info.get("width", 1)
                                 setattr(current, part, sub_mock)
                             current = getattr(current, part)
-                    
+
                     # Cast to HierarchyObject type for type checking
                     return cast(HierarchyObject, mock_dut)
                 else:

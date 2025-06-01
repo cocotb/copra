@@ -272,58 +272,67 @@ def discover_hierarchy(
         raise ValueError("max_depth must be positive")
 
     # Check if we have pre-extracted hierarchy from simulation
-    if hasattr(dut, '_copra_hierarchy'):
+    # Make sure it's not a Mock object and the attribute contains actual data
+    if (hasattr(dut, '_copra_hierarchy') and
+        not type(dut).__name__ == 'Mock' and
+        hasattr(dut._copra_hierarchy, 'items') and
+        callable(dut._copra_hierarchy.items)):
         print("[copra] Using pre-extracted hierarchy from simulation")
         hierarchy = HierarchyDict()
-        
+
         # Convert the extracted hierarchy to the expected format
         extracted_hierarchy = dut._copra_hierarchy
-        
-        for path, info in extracted_hierarchy.items():
-            # Map the extracted type names to actual cocotb types
-            type_name = info.get("type", "SimHandleBase")
-            
-            if type_name in ["LogicObject", "IntegerObject", "RealObject", "StringObject"]:
-                # Import the actual cocotb types
-                try:
-                    if type_name == "LogicObject":
+
+        try:
+            for path, info in extracted_hierarchy.items():
+                # Map the extracted type names to actual cocotb types
+                type_name = info.get("type", "SimHandleBase")
+
+                if type_name in ["LogicObject", "IntegerObject", "RealObject", "StringObject"]:
+                    # Import the actual cocotb types
+                    try:
+                        if type_name == "LogicObject":
+                            from cocotb.handle import SimHandleBase
+                            hierarchy[path] = SimHandleBase
+                        elif type_name == "IntegerObject":
+                            from cocotb.handle import IntegerObject
+                            hierarchy[path] = IntegerObject
+                        elif type_name == "RealObject":
+                            from cocotb.handle import RealObject
+                            hierarchy[path] = RealObject
+                        elif type_name == "StringObject":
+                            from cocotb.handle import StringObject
+                            hierarchy[path] = StringObject
+                        else:
+                            from cocotb.handle import SimHandleBase
+                            hierarchy[path] = SimHandleBase
+                    except ImportError:
+                        # Fallback to SimHandleBase if specific types not available
                         from cocotb.handle import SimHandleBase
                         hierarchy[path] = SimHandleBase
-                    elif type_name == "IntegerObject":
-                        from cocotb.handle import IntegerObject
-                        hierarchy[path] = IntegerObject
-                    elif type_name == "RealObject":
-                        from cocotb.handle import RealObject
-                        hierarchy[path] = RealObject
-                    elif type_name == "StringObject":
-                        from cocotb.handle import StringObject
-                        hierarchy[path] = StringObject
-                    else:
-                        from cocotb.handle import SimHandleBase
-                        hierarchy[path] = SimHandleBase
-                except ImportError:
-                    # Fallback to SimHandleBase if specific types not available
+                else:
+                    # Default to SimHandleBase for unknown types
                     from cocotb.handle import SimHandleBase
                     hierarchy[path] = SimHandleBase
-            else:
-                # Default to SimHandleBase for unknown types
-                from cocotb.handle import SimHandleBase
-                hierarchy[path] = SimHandleBase
-        
-        # Add some basic metadata
-        hierarchy._signal_metadata = {}
-        hierarchy._array_info = {}
-        hierarchy._discovery_stats = {
-            "total_objects": len(hierarchy),
-            "max_depth_reached": 1,
-            "errors_encountered": 0,
-            "arrays_detected": 0,
-            "performance_optimizations": 0,
-            "metadata_extracted": 0,
-            "multidimensional_arrays": 0,
-        }
-        
-        return hierarchy
+
+            # Add some basic metadata
+            hierarchy._signal_metadata = {}
+            hierarchy._array_info = {}
+            hierarchy._discovery_stats = {
+                "total_objects": len(hierarchy),
+                "max_depth_reached": 1,
+                "errors_encountered": 0,
+                "arrays_detected": 0,
+                "performance_optimizations": 0,
+                "metadata_extracted": 0,
+                "multidimensional_arrays": 0,
+            }
+
+            return hierarchy
+        except (TypeError, AttributeError):
+            # If we can't iterate over the extracted hierarchy, fall back to normal discovery
+            print("[copra] Failed to use pre-extracted hierarchy, falling back to normal discovery")
+            pass
 
     hierarchy = HierarchyDict()
     discovery_stats = {

@@ -11,7 +11,7 @@ integration as specified in the design document.
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Callable, Dict, List, Optional
 
 try:
     from cocotb.handle import HierarchyObject  # type: ignore[import-untyped]
@@ -24,7 +24,7 @@ except ImportError:
         """Mock HierarchyObject when cocotb is not available."""
 
         pass
-    
+
     # Use the mock as HierarchyObject when cocotb is not available
     HierarchyObject = MockHierarchyObject
 

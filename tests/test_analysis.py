@@ -6,8 +6,8 @@ from typing import Any, Dict
 from unittest.mock import Mock, patch
 
 import pytest
-
 from cocotb.handle import HierarchyObject, SimHandleBase
+
 from copra.analysis import (
     analyze_hierarchy_complexity,
     analyze_stub_coverage,

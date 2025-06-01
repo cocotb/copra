@@ -565,9 +565,9 @@ def extract_comprehensive_metadata(hierarchy: Dict[str, type]) -> Dict[str, Sign
             else:
                 # Try to extract from the object directly
                 signal_metadata = extractor.extract_signal_metadata(signal_type, path)
-            
+
             metadata[path] = signal_metadata
-        except Exception as e:
+        except Exception:
             # If extraction fails, create a basic metadata entry
             signal_name = path.split('.')[-1]
             metadata[path] = SignalMetadata(

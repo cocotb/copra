@@ -16,9 +16,7 @@ from copra import (
     DocumentationGenerator,
     StubGenerationOptions,
     StubGenerator,
-    create_stub_from_dut,
     discover_hierarchy,
-    generate_stub,
     generate_testbench_template,
     run_discovery_simulation,
 )
@@ -33,11 +31,11 @@ def generate_dff_stubs():
     # Define source files
     base_dir = Path(__file__).parent
     verilog_sources = [str(base_dir / "dff.sv")]
-    
+
     print("Source files:")
     for src in verilog_sources:
         print(f"  - {src}")
-    
+
     print("\nTop module: dff")
     print("Target simulator: icarus")
 
@@ -69,9 +67,9 @@ def generate_dff_stubs():
             array_detection=True,
             extract_metadata=True
         )
-        
+
         print(f"✓ Discovered {len(hierarchy)} signals/modules in hierarchy")
-        
+
         # Print detailed hierarchy information
         print("\nHierarchy overview:")
         for path, obj_type in sorted(hierarchy.items()):
@@ -142,17 +140,17 @@ def generate_dff_stubs():
         # Generate documentation in multiple formats
         print("Generating Markdown documentation...")
         md_generator = DocumentationGenerator("markdown")
-        md_content = md_generator.generate_interface_documentation(
+        md_generator.generate_interface_documentation(
             hierarchy, str(base_dir / "dff_interface.md")
         )
-        print(f"✓ Generated Markdown documentation: dff_interface.md")
+        print("✓ Generated Markdown documentation: dff_interface.md")
 
         print("Generating HTML documentation...")
         html_generator = DocumentationGenerator("html")
-        html_content = html_generator.generate_interface_documentation(
+        html_generator.generate_interface_documentation(
             hierarchy, str(base_dir / "dff_interface.html")
         )
-        print(f"✓ Generated HTML documentation: dff_interface.html")
+        print("✓ Generated HTML documentation: dff_interface.html")
 
         print("\n" + "=" * 40)
         print("Step 5: Testbench Template Generation")
@@ -164,7 +162,7 @@ def generate_dff_stubs():
             hierarchy, str(base_dir / "test_dff_generated.py")
         )
 
-        print(f"✓ Generated testbench template: test_dff_generated.py")
+        print("✓ Generated testbench template: test_dff_generated.py")
         print(f"  Template size: {len(testbench_content)} characters")
 
         print("\n" + "=" * 40)
@@ -174,17 +172,17 @@ def generate_dff_stubs():
         # Analyze the DFF-specific signals
         expected_signals = ['clk', 'rst_n', 'd', 'q']
         found_signals = []
-        
+
         for path in hierarchy.keys():
             signal_name = path.split('.')[-1]  # Get the last part of the path
             if signal_name in expected_signals:
                 found_signals.append(signal_name)
-        
+
         print("DFF Signal Analysis:")
         for signal in expected_signals:
             status = "✓ Found" if signal in found_signals else "✗ Missing"
             print(f"  {signal}: {status}")
-        
+
         if len(found_signals) == len(expected_signals):
             print("✓ All expected DFF signals discovered!")
         else:
@@ -192,19 +190,19 @@ def generate_dff_stubs():
 
         # Enhanced DFF functionality analysis
         print("\nDFF Functionality Analysis:")
-        
+
         # Clock analysis
         clock_signals = [s for s in hierarchy.keys() if 'clk' in s.lower()]
         print(f"  Clock signals: {len(clock_signals)}")
         for clk in clock_signals:
             print(f"    - {clk}")
-        
+
         # Reset analysis
         reset_signals = [s for s in hierarchy.keys() if 'rst' in s.lower() or 'reset' in s.lower()]
         print(f"  Reset signals: {len(reset_signals)}")
         for rst in reset_signals:
             print(f"    - {rst}")
-        
+
         # Data path analysis
         data_signals = [s for s in hierarchy.keys() if s.split('.')[-1] in ['d', 'q']]
         print(f"  Data path signals: {len(data_signals)}")
@@ -253,7 +251,7 @@ def generate_dff_stubs():
         print("\n" + "=" * 40)
         print("✓ Comprehensive DFF stub generation completed!")
         print("=" * 40)
-        
+
         print("\nComprehensive features demonstrated:")
         print("1. ✓ Hierarchical stub generation (even for simple designs)")
         print("2. ✓ Multiple output formats (pyi, py)")
@@ -269,13 +267,13 @@ def generate_dff_stubs():
         print("3. View dff_interface.html in a browser for rich documentation")
         print("4. Use test_dff_generated.py as a starting point for comprehensive tests")
         print("5. Compare hierarchical vs runtime stub approaches")
-        
+
         return hierarchical_stub_content
 
     except Exception as e:
         print(f"✗ Error during stub generation: {e}")
         print("\nFallback: Generating basic DFF stubs without simulation")
-        
+
         # Fallback to basic stub generation for DFF
         basic_stub = """# Basic type stub for DFF example
 # Generated by copra (fallback mode)
@@ -284,16 +282,16 @@ from cocotb.handle import HierarchyObject, SimHandleBase
 
 class Dff(HierarchyObject):
     \"\"\"Simple D Flip-Flop DUT.
-    
+
     A basic D flip-flop with clock and active-low reset.
-    
+
     Signals:
         clk: Clock input
         rst_n: Active-low reset
         d: Data input
         q: Data output (registered)
     \"\"\"
-    
+
     clk: SimHandleBase
     rst_n: SimHandleBase
     d: SimHandleBase
@@ -302,11 +300,11 @@ class Dff(HierarchyObject):
 # Type alias for the main DUT
 DutType = Dff
 """
-        
+
         stub_file = base_dir / "dut.pyi"
         with open(stub_file, "w") as f:
             f.write(basic_stub)
-        
+
         print(f"✓ Generated basic DFF stub file: {stub_file}")
         return basic_stub
 
