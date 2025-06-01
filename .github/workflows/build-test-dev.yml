@@ -100,6 +100,17 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         
+    - name: Install iverilog (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y iverilog
+        
+    - name: Install iverilog (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install icarus-verilog
+        
     - name: Install nox
       run: |
         python -m pip install --upgrade pip
