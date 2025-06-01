@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
 ]
 dependencies = [
-    "cocotb>=1.8.0", # install cocotb >= 1.8.0 (2.0.0 not yet released on PyPI)
+    "cocotb @ git+https://github.com/cocotb/cocotb.git@master", # change to cocotb>=2.0.0 when released
 ]
 
 [project.optional-dependencies]
