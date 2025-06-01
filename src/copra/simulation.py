@@ -270,7 +270,7 @@ def extract_hierarchy(obj, path="", max_depth=10, current_depth=0):
                         sub_hierarchy = extract_hierarchy(
                             child, full_path, max_depth, current_depth + 1
                         )
-                    hierarchy.update(sub_hierarchy)
+                        hierarchy.update(sub_hierarchy)
         except (TypeError, AttributeError):
             # Method 2: Try using _sub_handles if iteration doesn't work
             if hasattr(obj, '_sub_handles') and obj._sub_handles:
@@ -292,7 +292,7 @@ def extract_hierarchy(obj, path="", max_depth=10, current_depth=0):
                             sub_hierarchy = extract_hierarchy(
                                 handle, full_path, max_depth, current_depth + 1
                             )
-                        hierarchy.update(sub_hierarchy)
+                            hierarchy.update(sub_hierarchy)
             else:
                 # Method 3: Try attribute-based discovery as fallback
                 try:
