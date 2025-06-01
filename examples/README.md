@@ -1,43 +1,50 @@
 # copra Examples
 
-This directory contains examples demonstrating how to use copra to generate Python type stubs for cocotb testbenches.
+Examples demonstrating copra's comprehensive capabilities for generating Python type stubs for cocotb testbenches.
 
-## Simple DFF Example
+## Examples
 
-```python
-# examples/simple_dff/test_dff.py
-import cocotb
-from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge
+- **[minimal/](minimal/)** - Simple 8-bit module showing core features
+- **[simple_dff/](simple_dff/)** - D flip-flop with signal analysis
+- **[complex_cpu/](complex_cpu/)** - Multi-core CPU with deep hierarchy
 
-@cocotb.test()
-async def test_dff(dut):
-    """Test a simple D flip-flop."""
-    clock = Clock(dut.clk, 10, units="ns")
-    cocotb.start_soon(clock.start())
-    
-    # Reset
-    dut.rst_n.value = 0
-    dut.d.value = 0
-    await RisingEdge(dut.clk)
-    await RisingEdge(dut.clk)
-    dut.rst_n.value = 1
-    
-    # Test data
-    test_values = [0, 1, 0, 1, 1, 0]
-    
-    for i, val in enumerate(test_values, 1):
-        dut.d.value = val
-        await RisingEdge(dut.clk)
-        assert dut.q.value == (test_values[i-2] if i > 1 else 0), \
-            f"Expected {test_values[i-2]}, got {dut.q.value}"
-```
+## Features Demonstrated
 
-To generate stubs for this example:
+Each example shows the complete copra feature set:
+
+1. **Hierarchical Stub Generation** - Proper module structure representation
+2. **Multiple Output Formats** - `.pyi` stubs and `.py` runtime modules  
+3. **Documentation Generation** - Markdown, HTML, and RST formats
+4. **Testbench Templates** - Auto-generated test scaffolding
+5. **Enhanced Analysis** - Signal categorization and validation
+6. **Configurable Options** - Customizable generation parameters
+
+## Quick Start
 
 ```bash
-# From the repository root
-copra examples/simple_dff/dff -o examples/simple_dff/dut.pyi
+cd examples/simple_dff
+python generate_stubs.py  # Generates all outputs
+make                      # Run tests with type checking
 ```
 
-The generated `dut.pyi` will contain type information for the DUT hierarchy, enabling better IDE support and type checking.
+**Generated files:**
+- `dut.pyi` - Hierarchical type stubs
+- `dut_runtime.pyi` - Runtime type module
+- `*_interface.{md,html,rst}` - Documentation
+- `test_*_generated.py` - Testbench template
+
+## Usage Example
+
+```python
+import cocotb
+from typing import cast
+from dut import DutType  # Generated type stub
+
+@cocotb.test()
+async def test_with_types(dut):
+    typed_dut = cast(DutType, dut)  # Full IDE support
+    typed_dut.clk.value = 0        # Autocompletion
+    # ... rest of test
+```
+
+See individual example directories for detailed information.

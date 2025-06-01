@@ -1,88 +1,65 @@
-# Minimal Example: End-to-End Type Stub Generation
+# Minimal Example
 
-This example demonstrates copra's core functionality with a simple SystemVerilog module. It shows the complete workflow from HDL source to generated type stubs.
+Simple 8-bit passthrough module demonstrating copra's complete feature set.
 
-## Overview
+## Files
 
-The minimal example includes:
-- **`minimal.sv`**: A simple SystemVerilog module (8-bit passthrough with reset)
-- **`generate_stubs.py`**: Script that runs real simulation to discover DUT hierarchy
-- **`test_minimal.py`**: Comprehensive test suite demonstrating stub usage
-- **`dut.pyi`**: Generated type stubs (created by running the generator)
+- `minimal.sv` - Simple 8-bit passthrough module with reset
+- `generate_stubs.py` - Comprehensive stub generation script
+- `test_minimal.py` - Test suite with type integration
+- `Makefile` - Build and test configuration
 
-## Key Features Demonstrated
+## Features Demonstrated
 
-1. **Real Simulation Integration**: Uses actual cocotb simulation to discover DUT
-2. **Hierarchy Discovery**: Automatically finds all signals and their types
-3. **Type Stub Generation**: Creates `.pyi` files for IDE autocompletion
-4. **IDE Integration**: Shows how stubs enable autocompletion and type checking
-5. **Runtime Generation**: Demonstrates generating stubs from within tests
+- **Hierarchical Stub Generation** - Proper module structure for simple designs
+- **Multiple Output Formats** - `.pyi` stubs and `.py` runtime modules
+- **Documentation Generation** - Markdown, HTML, and RST formats
+- **Testbench Templates** - Auto-generated test scaffolding
+- **Enhanced Analysis** - Signal categorization and interface validation
+- **Real Simulation Integration** - Uses actual cocotb simulation for discovery
 
 ## Quick Start
 
-### 1. Generate Type Stubs
-
 ```bash
-# Run the stub generator (requires icarus verilog)
+# Generate all outputs
 python generate_stubs.py
-```
 
-This will:
-- Compile the SystemVerilog module using icarus
-- Run a discovery simulation to introspect the DUT
-- Generate `dut.pyi` with proper type annotations
-
-### 2. Run Tests with Type Support
-
-```bash
-# Run the test suite
+# Run tests
 make
 ```
 
-The tests demonstrate:
-- Basic functionality testing
-- Runtime stub generation
-- Type checking benefits
+**Generated files:**
+- `dut.pyi` - Hierarchical type stubs
+- `dut_runtime.pyi` - Runtime type module
+- `minimal_interface.{md,html,rst}` - Documentation
+- `test_minimal_generated.py` - Testbench template
 
-## Generated Stub Structure
-
-The generated `dut.pyi` provides:
+## Generated Type Stubs
 
 ```python
-from cocotb.handle import HierarchyObject, SimHandleBase
-
 class Minimal(HierarchyObject):
-    """Minimal example DUT with proper type annotations."""
+    """Type stub for minimal module."""
     
     clk: SimHandleBase      # Clock input
-    rst_n: SimHandleBase    # Active-low reset  
+    rst_n: SimHandleBase    # Active-low reset
     data_in: SimHandleBase  # 8-bit data input
     data_out: SimHandleBase # 8-bit data output
 
-DutType = Minimal  # Type alias for convenience
+DutType = Minimal
 ```
 
-## IDE Benefits
+## Signal Analysis
 
-With the generated stubs, your IDE will provide:
-
-- **Autocompletion**: Type `dut.` and see all available signals
-- **Type Checking**: Catch typos like `dut.clokc` before runtime
-- **Documentation**: Hover over signals to see descriptions
-- **Navigation**: Jump to signal definitions
+The generator automatically categorizes signals:
+- **Clock signals**: `clk`
+- **Reset signals**: `rst_n` 
+- **Data signals**: `data_in`, `data_out`
+- **Interface analysis**: Input vs output identification
 
 ## Requirements
 
 - Python 3.8+
 - cocotb 2.0+
-- icarus verilog (or another supported simulator)
-- copra (this project)
-
-## Files
-
-- `minimal.sv` - Simple 8-bit passthrough module with reset
-- `generate_stubs.py` - End-to-end stub generation script  
-- `test_minimal.py` - Test suite with type stub integration
-- `Makefile` - cocotb test configuration
-- `dut.pyi` - Generated type stubs (created by generator)
+- icarus verilog
+- copra
 

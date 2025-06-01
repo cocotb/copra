@@ -92,12 +92,20 @@ class StubGenerator:
         # Add header based on output format
         if self.options.output_format == "py":
             imports = []
+            # Combine typing imports with TYPE_CHECKING first
+            typing_imports = ["TYPE_CHECKING"]
             if needed_imports["typing"]:
-                imports.append(f"from typing import {', '.join(sorted(needed_imports['typing']))}")
+                typing_imports.extend(sorted(needed_imports['typing']))
+            imports.append(f"from typing import {', '.join(typing_imports)}")
+            
             if needed_imports["cocotb"]:
-                imports.append(
-                    f"from cocotb.handle import {', '.join(sorted(needed_imports['cocotb']))}"
-                )
+                imports.append("")  # Blank line between import modules
+                cocotb_imports = sorted(needed_imports['cocotb'])
+                if len(cocotb_imports) == 1:
+                    imports.append(f"from cocotb.handle import {cocotb_imports[0]}")
+                else:
+                    cocotb_join = ',\n    '.join(cocotb_imports)
+                    imports.append(f"from cocotb.handle import (\n    {cocotb_join},\n)")
             imports.extend([
                 "",
                 "if TYPE_CHECKING:",
@@ -106,13 +114,7 @@ class StubGenerator:
             ])
         else:  # pyi format
             imports = []
-            if needed_imports["typing"]:
-                typing_imports = sorted(needed_imports['typing'])
-                if len(typing_imports) == 1:
-                    imports.append(f"from typing import {typing_imports[0]}")
-                else:
-                    typing_join = ',\n    '.join(typing_imports)
-                    imports.append(f"from typing import (\n    {typing_join},\n)")
+            # Sort imports alphabetically
             if needed_imports["cocotb"]:
                 cocotb_imports = sorted(needed_imports['cocotb'])
                 if len(cocotb_imports) == 1:
@@ -120,6 +122,16 @@ class StubGenerator:
                 else:
                     cocotb_join = ',\n    '.join(cocotb_imports)
                     imports.append(f"from cocotb.handle import (\n    {cocotb_join},\n)")
+            
+            if needed_imports["typing"]:
+                if needed_imports["cocotb"]:
+                    imports.append("")  # Blank line between import modules
+                typing_imports = sorted(needed_imports['typing'])
+                if len(typing_imports) == 1:
+                    imports.append(f"from typing import {typing_imports[0]}")
+                else:
+                    typing_join = ',\n    '.join(typing_imports)
+                    imports.append(f"from typing import (\n    {typing_join},\n)")
 
         content.append(
             self.template.render_header(
@@ -154,7 +166,7 @@ class StubGenerator:
             content.append("# Runtime implementation would include actual signal handling")
             content.append("# This is a stub file for type checking purposes")
 
-        return "\n".join(content)
+        return "\n".join(content) + "\n"
 
     def _analyze_needed_imports(self, hierarchy: Dict[str, type]) -> Dict[str, Set[str]]:
         """Analyze which imports are actually needed based on the hierarchy.
@@ -303,87 +315,132 @@ class StubGenerator:
         ]
 
     def _generate_nested_hierarchy(self, hierarchy: Dict[str, type], module_name: str) -> List[str]:
-        """Generate a nested hierarchy with classes for each module."""
+        """Generate a nested hierarchy with classes for each module level."""
         classes = []
         
-        # Group signals by module
-        modules: Dict[str, Dict[str, type]] = {}
+        # Analyze the hierarchy to understand the structure
+        modules = self._analyze_hierarchy_structure(hierarchy, module_name)
         
+        # Generate classes for each module in the proper order
+        for module_path, module_info in sorted(modules.items()):
+            class_name = self._get_class_name_for_module(module_info["name"])
+            
+            # Generate the module class
+            self._generate_module_class_new(
+                class_name=class_name,
+                module_name=module_info["name"],
+                module_path=module_path,
+                signals=module_info["signals"],
+                submodules=module_info["submodules"],
+                classes=classes,
+                is_top_level=(module_path == module_name)
+            )
+        
+        return classes
+
+    def _analyze_hierarchy_structure(self, hierarchy: Dict[str, type], module_name: str) -> Dict[str, Dict[str, Any]]:
+        """Analyze hierarchy structure and group signals by module."""
+        modules = {}
+        
+        # Based on the simulation output, we know these are the hierarchical modules:
+        # - cpu_top (HierarchyObject)
+        # - cpu_top.u_clock_gen (HierarchyObject)
+        # - cpu_top.u_cpu_complex (HierarchyObject)
+        # - cpu_top.u_cpu_complex.u_dm_arbiter (HierarchyObject)
+        # - cpu_top.u_cpu_complex.u_if_arbiter (HierarchyObject)
+        # - cpu_top.u_csr_block (HierarchyObject)
+        
+        # Since type information is lost during pickle serialization, we need to
+        # identify hierarchical modules by analyzing the path structure
+        known_hierarchical_paths = set()
+        
+        # Find paths that have child paths (indicating they are modules)
+        all_paths = set(hierarchy.keys())
+        for path in all_paths:
+            # Check if any other path starts with this path + "."
+            for other_path in all_paths:
+                if other_path.startswith(path + ".") and other_path != path:
+                    known_hierarchical_paths.add(path)
+                    break
+        
+        # For each identified module path, create a module entry
+        for module_path in sorted(known_hierarchical_paths):
+            module_name_only = module_path.split(".")[-1]
+            
+            modules[module_path] = {
+                "name": module_name_only,
+                "signals": {},
+                "submodules": {}
+            }
+            
+            # Find signals and submodules that belong directly to this module
+            for path, obj_type in hierarchy.items():
+                # Check if this signal belongs directly to the current module
+                if path.startswith(module_path + ".") and path.count(".") == module_path.count(".") + 1:
+                    signal_name = path.split(".")[-1]
+                    # Check if this is a submodule (has children)
+                    if path in known_hierarchical_paths:
+                        modules[module_path]["submodules"][signal_name] = obj_type
+                    else:
+                        modules[module_path]["signals"][signal_name] = obj_type
+        
+        # Handle the top-level module specially
+        if module_name not in modules:
+            modules[module_name] = {
+                "name": module_name,
+                "signals": {},
+                "submodules": {}
+            }
+        
+        # Find top-level signals and immediate submodules
         for path, obj_type in hierarchy.items():
             parts = path.split(".")
-            
             if len(parts) == 1:
-                # Top-level signal - could be the module itself or a direct signal
-                if parts[0] == module_name:
-                    # This is the top-level module reference, skip it
-                    continue
+                # This is the top-level module itself
+                continue
+            elif len(parts) == 2 and parts[0] == module_name:
+                # This is a direct child of the top module
+                signal_name = parts[1]
+                if path in known_hierarchical_paths:
+                    modules[module_name]["submodules"][signal_name] = obj_type
                 else:
-                    # This is a top-level signal
-                    module_key = "top"
-                    signal_name = parts[0]
-            else:
-                # Nested signal - group by first part (module name)
-                module_key = parts[0]
-                signal_name = parts[-1]  # Use the actual signal name, not the full path
-            
-            if module_key not in modules:
-                modules[module_key] = {}
-            
-            modules[module_key][signal_name] = obj_type
+                    modules[module_name]["signals"][signal_name] = obj_type
         
-        # Generate the main DUT class first
-        main_class_name = (
-            f"{self.options.class_prefix}{to_capwords(module_name)}{self.options.class_suffix}"
-        )
-        
-        # Collect all top-level signals and sub-modules
-        top_signals = modules.get("top", {})
-        sub_modules = {}
-        
-        # Identify sub-modules from the hierarchy
-        for module_key in modules:
-            if module_key != "top":
-                sub_modules[module_key] = modules[module_key]
-        
-        # Generate main DUT class
+        return modules
+
+    def _generate_module_class_new(self, class_name: str, module_name: str, module_path: str,
+                                  signals: Dict[str, type], submodules: Dict[str, type], 
+                                  classes: List[str], is_top_level: bool = False) -> None:
+        """Generate a class for a specific module with proper structure."""
         attributes = []
         
-        # Add top-level signals
-        if top_signals:
-            attributes.append("    # Top-level signals")
-            for signal_name, obj_type in sorted(top_signals.items()):
-                # Safe way to get type name, handling Mock objects
-                if hasattr(obj_type, '__name__'):
-                    type_annotation = obj_type.__name__
-                elif hasattr(obj_type, '__class__'):
-                    type_annotation = obj_type.__class__.__name__
-                else:
-                    type_annotation = str(type(obj_type).__name__)
+        # Add signals
+        if signals:
+            if not is_top_level:
+                attributes.append("    # Module signals")
+            for signal_name, obj_type in sorted(signals.items()):
+                type_annotation = self._get_safe_type_annotation(obj_type)
                 
-                # Use SimHandleBase for Mock objects and unknown types
-                if type_annotation == "Mock" or type_annotation not in ["HierarchyObject", "SimHandleBase", "LogicObject", "IntegerObject", "RealObject", "StringObject"]:
-                    type_annotation = "SimHandleBase"
-                    
                 if self.options.typing_style == "legacy":
                     type_annotation = f"'{type_annotation}'"
 
                 comment = ""
                 if self.options.include_metadata:
-                    comment = f"Top-level signal: {signal_name}"
+                    comment = f"Signal in {module_name}: {signal_name}"
 
                 attributes.append(
                     self.template.render_signal(
                         name=signal_name, type_annotation=type_annotation, comment=comment
                     )
                 )
-            attributes.append("")
+            if signals:
+                attributes.append("")
         
-        # Add sub-module references
-        if sub_modules:
+        # Add sub-modules
+        if submodules:
             attributes.append("    # Sub-modules")
-            for sub_name in sorted(sub_modules.keys()):
-                # Create proper sub-module class name
-                sub_class_name = f"{to_capwords(sub_name.replace('u_', ''))}"
+            for sub_name, obj_type in sorted(submodules.items()):
+                sub_class_name = self._get_class_name_for_module(sub_name)
                 
                 comment = ""
                 if self.options.include_metadata:
@@ -394,84 +451,88 @@ class StubGenerator:
                         name=sub_name, type_annotation=sub_class_name, comment=comment
                     )
                 )
-            attributes.append("")
+            if submodules:
+                attributes.append("")
 
-        # Generate main class docstring
+        # Generate docstring
         docstring = ""
         if self.options.include_docstrings:
-            total_signals = len(top_signals)
-            total_submodules = len(sub_modules)
-            docstring = f'''    """Type stub for {module_name} module.
-
-    This class provides type hints for the top-level DUT.
-    Top-level signals: {total_signals}
-    Sub-modules: {total_submodules}
+            if is_top_level:
+                description = f"Type stub for {module_name} module.\n\n    This class provides type hints for the top-level DUT."
+            else:
+                description = f"Type stub for {module_name} sub-module.\n\n    This class provides type hints for signals in the {module_name} sub-module."
+            
+            docstring = f'''    """{description}
+    Top-level signals: {len(signals)}
+    Sub-modules: {len(submodules)}
     """
 '''
 
-        # Add main DUT class
-        if attributes:
+        # Generate the class
+        if attributes or is_top_level:
             classes.append(
                 self.template.render_class(
-                    class_name=main_class_name, docstring=docstring, attributes="\n".join(attributes)
+                    class_name=class_name, 
+                    docstring=docstring, 
+                    attributes="\n".join(attributes) if attributes else "    pass"
                 )
             )
 
-        # Generate classes for each sub-module
-        for module_key, signals in sorted(sub_modules.items()):
-            sub_class_name = f"{to_capwords(module_key.replace('u_', ''))}"
-            
-            attributes = []
-            
-            # Generate signal attributes for this sub-module
-            if signals:
-                attributes.append("    # Module signals")
-                for signal_name, obj_type in sorted(signals.items()):
-                    # Safe way to get type name, handling Mock objects
-                    if hasattr(obj_type, '__name__'):
-                        type_annotation = obj_type.__name__
-                    elif hasattr(obj_type, '__class__'):
-                        type_annotation = obj_type.__class__.__name__
-                    else:
-                        type_annotation = str(type(obj_type).__name__)
-                    
-                    # Use SimHandleBase for Mock objects and unknown types
-                    if type_annotation == "Mock" or type_annotation not in ["HierarchyObject", "SimHandleBase", "LogicObject", "IntegerObject", "RealObject", "StringObject"]:
-                        type_annotation = "SimHandleBase"
-                        
-                    if self.options.typing_style == "legacy":
-                        type_annotation = f"'{type_annotation}'"
+    def _get_class_name_for_module(self, module_name: str) -> str:
+        """Generate an appropriate class name for a module."""
+        # Remove common prefixes and convert to CamelCase
+        clean_name = module_name
+        if clean_name.startswith("u_"):
+            clean_name = clean_name[2:]  # Remove "u_" prefix
+        return to_capwords(clean_name)
 
-                    comment = ""
-                    if self.options.include_metadata:
-                        comment = f"Signal in {module_key}: {signal_name}"
+    def _is_hierarchical_type(self, obj_type: type) -> bool:
+        """Determine if a type represents a hierarchical module."""
+        # First check if it's actually a HierarchyObject class/type
+        try:
+            from cocotb.handle import HierarchyObject as CocotbHierarchyObject
+            if obj_type == CocotbHierarchyObject or (hasattr(obj_type, '__bases__') and CocotbHierarchyObject in obj_type.__bases__):
+                return True
+        except ImportError:
+            pass
+        
+        # Fallback to string-based checking
+        if hasattr(obj_type, '__name__'):
+            type_name = obj_type.__name__
+            return type_name in ["HierarchyObject", "ModifiableObject"] or "Hierarchy" in type_name
+        
+        return False
 
-                    attributes.append(
-                        self.template.render_signal(
-                            name=signal_name, type_annotation=type_annotation, comment=comment
-                        )
-                    )
-                attributes.append("")
-
-            # Generate sub-module docstring
-            docstring = ""
-            if self.options.include_docstrings:
-                docstring = f'''    """Type stub for {module_key} sub-module.
-
-    This class provides type hints for signals in the {module_key} sub-module.
-    Total signals: {len(signals)}
-    """
-'''
-
-            # Only generate class if it has content
-            if attributes:
-                classes.append(
-                    self.template.render_class(
-                        class_name=sub_class_name, docstring=docstring, attributes="\n".join(attributes)
-                    )
-                )
-
-        return classes
+    def _get_safe_type_annotation(self, obj_type: type) -> str:
+        """Get a safe type annotation string, handling Mock objects and unknown types."""
+        if hasattr(obj_type, '__name__'):
+            type_annotation = obj_type.__name__
+        elif hasattr(obj_type, '__class__'):
+            type_annotation = obj_type.__class__.__name__
+        else:
+            type_annotation = str(type(obj_type).__name__)
+        
+        # Map known cocotb types
+        known_types = {
+            "HierarchyObject": "HierarchyObject",
+            "SimHandleBase": "SimHandleBase", 
+            "LogicObject": "SimHandleBase",
+            "LogicArrayObject": "SimHandleBase",
+            "IntegerObject": "SimHandleBase",
+            "RealObject": "SimHandleBase",
+            "StringObject": "SimHandleBase",
+            "ModifiableObject": "SimHandleBase"
+        }
+        
+        # Use SimHandleBase for Mock objects and unknown types, but preserve HierarchyObject
+        if type_annotation == "Mock":
+            return "SimHandleBase"
+        elif type_annotation == "HierarchyObject":
+            return "HierarchyObject"
+        elif type_annotation not in known_types:
+            return "SimHandleBase"
+        
+        return known_types.get(type_annotation, "SimHandleBase")
 
 
 class StubTemplate:
