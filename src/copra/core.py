@@ -30,12 +30,11 @@ from cocotb.handle import (
     HierarchyArrayObject,
     HierarchyObject,
     IntegerObject,
+    LogicArray,
     RealObject,
     SimHandleBase,
     StringObject,
 )
-
-from cocotb.handle import LogicArray
 
 # Print cocotb version for debugging
 try:

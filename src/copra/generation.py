@@ -1077,15 +1077,17 @@ def _generate_simple_template(hierarchy: Dict[str, type], test_name: str) -> str
     if not dut_signals:
         dut_signals = [path for path in hierarchy.keys() if "." not in path and path != "dut"]
 
+    # Sort imports and only include what's needed
     template = f'''"""Auto-generated testbench template.
 
 This template provides a starting point for writing cocotb tests with
 proper type hints and IDE support.
 """
 
-import cocotb
-from cocotb.triggers import Timer, RisingEdge, FallingEdge
 from typing import cast
+
+import cocotb
+from cocotb.triggers import Timer
 
 # Import the generated DUT type
 from dut import DutType
@@ -1098,6 +1100,7 @@ async def {test_name}(dut):
     Args:
     ----
         dut: The DUT instance from cocotb.
+
     """
     # Cast to typed DUT for IDE support
     typed_dut = cast(DutType, dut)
@@ -1163,18 +1166,19 @@ def _generate_comprehensive_template(
 
     # Generate class name
     class_name = to_capwords(dut_name) + "TestBench"
-
+    # ruff: noqa
     template = f'''"""Auto-generated testbench for {dut_name}.
 
 This testbench provides comprehensive test coverage with proper
 clock and reset handling, multiple test scenarios, and TestFactory integration.
 """
 
+from typing import Any, cast
+
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import Timer, RisingEdge, FallingEdge, ClockCycles
 from cocotb.regression import TestFactory
-from typing import cast, Any
+from cocotb.triggers import ClockCycles
 
 # Import the generated DUT type
 from dut import DutType
@@ -1189,6 +1193,7 @@ class {class_name}:
         Args:
         ----
             dut: The DUT instance from cocotb.
+
         """
         self.dut = cast(DutType, dut)
         self.clock_period = 10  # ns

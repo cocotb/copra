@@ -13,7 +13,20 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from cocotb.handle import HierarchyObject
+try:
+    from cocotb.handle import HierarchyObject
+
+    COCOTB_AVAILABLE = True
+except ImportError:
+    COCOTB_AVAILABLE = False
+
+    class MockHierarchyObject:
+        """Mock HierarchyObject when cocotb is not available."""
+
+        pass
+
+    # Use the mock as HierarchyObject when cocotb is not available
+    HierarchyObject = MockHierarchyObject  # type: ignore[misc,assignment]
 
 class CocotbIntegration:
     """Integration helper for cocotb workflows."""
@@ -33,6 +46,10 @@ class CocotbIntegration:
 
     def setup_test_hooks(self) -> None:
         """Set up automatic stub generation hooks for cocotb tests."""
+        if not COCOTB_AVAILABLE:
+            print("[copra] Warning: cocotb not available, skipping test hooks setup")
+            return
+
         # Register hooks with cocotb if available
         try:
             # This would integrate with cocotb's test discovery and execution
@@ -181,6 +198,10 @@ def setup_automatic_stub_generation(
         stub_naming_pattern: Pattern for naming stub files.
 
     """
+    if not COCOTB_AVAILABLE:
+        print("[copra] Warning: cocotb not available, cannot set up automatic generation")
+        return
+
     integration = CocotbIntegration(auto_generate=enable_for_all_tests, output_dir=output_dir)
     integration.setup_test_hooks()
 
@@ -413,8 +434,19 @@ def load_copra_config(config_path: str = ".copra.toml") -> Dict[str, Any]:
     if not config_file.exists():
         return {}
 
-    import tomllib
+    try:
+        import tomllib  # type: ignore[import-untyped]
+    except ImportError:
+        try:
+            import tomli as tomllib  # type: ignore[import-untyped]
+        except ImportError:
+            print("[copra] Warning: TOML library not available, using default configuration")
+            return {}
 
-    with open(config_file, "rb") as f:
-        config_data: Dict[str, Any] = tomllib.load(f)
-        return config_data
+    try:
+        with open(config_file, "rb") as f:
+            config_data: Dict[str, Any] = tomllib.load(f)
+            return config_data
+    except Exception as e:
+        print(f"[copra] Warning: Failed to load configuration: {e}")
+        return {}
