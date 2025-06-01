@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
 
-from cocotb.handle import HierarchyObject  # type: ignore[import-untyped]
+from cocotb.handle import HierarchyObject
 
 from .core import discover_hierarchy
 

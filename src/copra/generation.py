@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 try:
-    from cocotb.handle import HierarchyObject  # type: ignore[import-untyped]
+    from cocotb.handle import HierarchyObject
 
     COCOTB_AVAILABLE = True
 except ImportError:
@@ -168,7 +168,9 @@ class StubGenerator:
             content.extend(self._generate_nested_hierarchy(hierarchy, module_name))
 
         # Add type alias for the main DUT
-        main_class_name = f"{self.options.class_prefix}{to_capwords(module_name)}{self.options.class_suffix}"
+        main_class_name = (
+            f"{self.options.class_prefix}{to_capwords(module_name)}{self.options.class_suffix}"
+        )
         content.append("")
         content.append("# Type alias for the main DUT")
         content.append(f"DutType = {main_class_name}")
@@ -350,7 +352,7 @@ class StubGenerator:
 
     def _generate_nested_hierarchy(self, hierarchy: Dict[str, type], module_name: str) -> List[str]:
         """Generate a nested hierarchy with classes for each module level."""
-        classes = []
+        classes: List[str] = []
 
         # Analyze the hierarchy to understand the structure
         modules = self._analyze_hierarchy_structure(hierarchy, module_name)
@@ -372,9 +374,11 @@ class StubGenerator:
 
         return classes
 
-    def _analyze_hierarchy_structure(self, hierarchy: Dict[str, type], module_name: str) -> Dict[str, Dict[str, Any]]:
+    def _analyze_hierarchy_structure(
+        self, hierarchy: Dict[str, type], module_name: str
+    ) -> Dict[str, Dict[str, Any]]:
         """Analyze hierarchy structure and group signals by module."""
-        modules = {}
+        modules: Dict[str, Dict[str, Any]] = {}
 
         # Based on the simulation output, we know these are the hierarchical modules:
         # - cpu_top (HierarchyObject)
@@ -386,7 +390,7 @@ class StubGenerator:
 
         # Since type information is lost during pickle serialization, we need to
         # identify hierarchical modules by analyzing the path structure
-        known_hierarchical_paths = set()
+        known_hierarchical_paths: Set[str] = set()
 
         # Find paths that have child paths (indicating they are modules)
         all_paths = set(hierarchy.keys())
@@ -410,7 +414,8 @@ class StubGenerator:
             # Find signals and submodules that belong directly to this module
             for path, obj_type in hierarchy.items():
                 # Check if this signal belongs directly to the current module
-                if path.startswith(module_path + ".") and path.count(".") == module_path.count(".") + 1:
+                if (path.startswith(module_path + ".") and
+                    path.count(".") == module_path.count(".") + 1):
                     signal_name = path.split(".")[-1]
                     # Check if this is a submodule (has children)
                     if path in known_hierarchical_paths:
@@ -563,7 +568,9 @@ class StubGenerator:
         # First check if it's actually a HierarchyObject class/type
         try:
             from cocotb.handle import HierarchyObject as CocotbHierarchyObject
-            if obj_type == CocotbHierarchyObject or (hasattr(obj_type, '__bases__') and CocotbHierarchyObject in obj_type.__bases__):
+            if (obj_type == CocotbHierarchyObject or
+                (hasattr(obj_type, '__bases__') and
+                 CocotbHierarchyObject in obj_type.__bases__)):
                 return True
         except ImportError:
             pass

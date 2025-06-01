@@ -16,9 +16,7 @@ from copra import (
     DocumentationGenerator,
     StubGenerationOptions,
     StubGenerator,
-    create_stub_from_dut,
     discover_hierarchy,
-    generate_stub,
     generate_testbench_template,
     run_discovery_simulation,
 )
@@ -33,11 +31,11 @@ def generate_minimal_stubs():
     # Define source files
     base_dir = Path(__file__).parent
     verilog_sources = [str(base_dir / "minimal.sv")]
-    
+
     print("Source files:")
     for src in verilog_sources:
         print(f"  - {src}")
-    
+
     print("\nTop module: minimal")
     print("Target simulator: icarus")
 
@@ -69,9 +67,9 @@ def generate_minimal_stubs():
             array_detection=True,
             extract_metadata=True
         )
-        
+
         print(f"✓ Discovered {len(hierarchy)} signals/modules in hierarchy")
-        
+
         # Print detailed hierarchy information
         print("\nHierarchy overview:")
         for path, obj_type in sorted(hierarchy.items()):
@@ -142,24 +140,24 @@ def generate_minimal_stubs():
         # Generate documentation in multiple formats
         print("Generating Markdown documentation...")
         md_generator = DocumentationGenerator("markdown")
-        md_content = md_generator.generate_interface_documentation(
+        md_generator.generate_interface_documentation(
             hierarchy, str(base_dir / "minimal_interface.md")
         )
-        print(f"✓ Generated Markdown documentation: minimal_interface.md")
+        print("✓ Generated Markdown documentation: minimal_interface.md")
 
         print("Generating HTML documentation...")
         html_generator = DocumentationGenerator("html")
-        html_content = html_generator.generate_interface_documentation(
+        html_generator.generate_interface_documentation(
             hierarchy, str(base_dir / "minimal_interface.html")
         )
-        print(f"✓ Generated HTML documentation: minimal_interface.html")
+        print("✓ Generated HTML documentation: minimal_interface.html")
 
         print("Generating RST documentation...")
         rst_generator = DocumentationGenerator("rst")
-        rst_content = rst_generator.generate_interface_documentation(
+        rst_generator.generate_interface_documentation(
             hierarchy, str(base_dir / "minimal_interface.rst")
         )
-        print(f"✓ Generated RST documentation: minimal_interface.rst")
+        print("✓ Generated RST documentation: minimal_interface.rst")
 
         print("\n" + "=" * 40)
         print("Step 5: Testbench Template Generation")
@@ -171,7 +169,7 @@ def generate_minimal_stubs():
             hierarchy, str(base_dir / "test_minimal_generated.py")
         )
 
-        print(f"✓ Generated testbench template: test_minimal_generated.py")
+        print("✓ Generated testbench template: test_minimal_generated.py")
         print(f"  Template size: {len(testbench_content)} characters")
 
         print("\n" + "=" * 40)
@@ -181,17 +179,17 @@ def generate_minimal_stubs():
         # Analyze the minimal design signals
         expected_signals = ['clk', 'rst_n', 'data_in', 'data_out']
         found_signals = []
-        
+
         for path in hierarchy.keys():
             signal_name = path.split('.')[-1]  # Get the last part of the path
             if signal_name in expected_signals:
                 found_signals.append(signal_name)
-        
+
         print("Minimal Design Signal Analysis:")
         for signal in expected_signals:
             status = "✓ Found" if signal in found_signals else "✗ Missing"
             print(f"  {signal}: {status}")
-        
+
         if len(found_signals) == len(expected_signals):
             print("✓ All expected minimal design signals discovered!")
         else:
@@ -199,19 +197,19 @@ def generate_minimal_stubs():
 
         # Enhanced design analysis
         print("\nDesign Functionality Analysis:")
-        
+
         # Clock analysis
         clock_signals = [s for s in hierarchy.keys() if 'clk' in s.lower()]
         print(f"  Clock signals: {len(clock_signals)}")
         for clk in clock_signals:
             print(f"    - {clk}")
-        
+
         # Reset analysis
         reset_signals = [s for s in hierarchy.keys() if 'rst' in s.lower() or 'reset' in s.lower()]
         print(f"  Reset signals: {len(reset_signals)}")
         for rst in reset_signals:
             print(f"    - {rst}")
-        
+
         # Data path analysis
         data_signals = [s for s in hierarchy.keys() if 'data' in s.lower()]
         print(f"  Data path signals: {len(data_signals)}")
@@ -221,13 +219,15 @@ def generate_minimal_stubs():
         # Interface completeness analysis
         print("\nInterface Analysis:")
         all_signals = list(hierarchy.keys())
-        input_signals = [s for s in all_signals if any(inp in s.lower() for inp in ['in', 'input', 'clk', 'rst'])]
-        output_signals = [s for s in all_signals if any(out in s.lower() for out in ['out', 'output'])]
-        
+        input_signals = [s for s in all_signals if any(inp in s.lower()
+                                                       for inp in ['in', 'input', 'clk', 'rst'])]
+        output_signals = [s for s in all_signals if any(out in s.lower()
+                                                        for out in ['out', 'output'])]
+
         print(f"  Potential input signals: {len(input_signals)}")
         for inp in input_signals:
             print(f"    - {inp}")
-        
+
         print(f"  Potential output signals: {len(output_signals)}")
         for out in output_signals:
             print(f"    - {out}")
@@ -275,7 +275,7 @@ def generate_minimal_stubs():
         print("\n" + "=" * 40)
         print("✓ Comprehensive minimal stub generation completed!")
         print("=" * 40)
-        
+
         print("\nComprehensive features demonstrated:")
         print("1. ✓ Hierarchical stub generation (even for minimal designs)")
         print("2. ✓ Multiple output formats (pyi, py)")
@@ -293,13 +293,13 @@ def generate_minimal_stubs():
         print("4. Use test_minimal_generated.py as a starting point for comprehensive tests")
         print("5. Compare hierarchical vs runtime stub approaches")
         print("6. Explore different documentation formats for your needs")
-        
+
         return hierarchical_stub_content
 
     except Exception as e:
         print(f"✗ Error during stub generation: {e}")
         print("\nFallback: Generating basic stubs without simulation")
-        
+
         # Fallback to basic stub generation
         basic_stub = """# Basic type stub for minimal example
 # Generated by copra (fallback mode)
@@ -308,16 +308,16 @@ from cocotb.handle import HierarchyObject, SimHandleBase
 
 class Minimal(HierarchyObject):
     \"\"\"Minimal example DUT.
-    
+
     A simple design demonstrating basic copra capabilities.
-    
+
     Signals:
         clk: Clock input
         rst_n: Active-low reset
         data_in: 8-bit data input
         data_out: 8-bit data output
     \"\"\"
-    
+
     clk: SimHandleBase
     rst_n: SimHandleBase
     data_in: SimHandleBase
@@ -326,11 +326,11 @@ class Minimal(HierarchyObject):
 # Type alias for the main DUT
 DutType = Minimal
 """
-        
+
         stub_file = base_dir / "dut.pyi"
         with open(stub_file, "w") as f:
             f.write(basic_stub)
-        
+
         print(f"✓ Generated basic stub file: {stub_file}")
         return basic_stub
 

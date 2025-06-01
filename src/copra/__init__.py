@@ -87,7 +87,7 @@ from .simulation import (
 )
 
 try:
-    import cocotb  # type: ignore[import-untyped]
+    import cocotb
 
     COCOTB_AVAILABLE = True
     COCOTB_VERSION = getattr(cocotb, "__version__", "unknown")
@@ -122,7 +122,8 @@ def _check_cocotb_version() -> None:
             print("[copra] cocotb version information not available")
             return
 
-        # Skip version check for mock objects (testing) - but only if it's actually a Mock class name
+        # Skip version check for mock objects (testing) - but only if it's
+        # actually a Mock class name
         if hasattr(cocotb, '__class__') and cocotb.__class__.__name__ == 'Mock':
             return
 

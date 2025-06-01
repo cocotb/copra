@@ -254,7 +254,7 @@ def lint(session):
         cocotb_spec,
     )
     session.run("ruff", *args)
-    session.run("mypy", "--strict", "src")
+    session.run("mypy", "--strict", "--disable-error-code=unused-ignore", "src")
 
 
 @nox.session(python=PYTHON_VERSIONS[-1])

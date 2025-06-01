@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, TextIO, Tuple, TypeVar
 
-from cocotb.handle import (  # type: ignore[import-untyped]
+from cocotb.handle import (
     EnumObject,
     HierarchyArrayObject,
     HierarchyObject,
@@ -35,15 +35,11 @@ from cocotb.handle import (  # type: ignore[import-untyped]
     StringObject,
 )
 
-# LogicArray might not be available in all cocotb versions
-try:
-    from cocotb.handle import LogicArray
-except ImportError:
-    LogicArray = None
+from cocotb.handle import LogicArray
 
 # Print cocotb version for debugging
 try:
-    import cocotb  # type: ignore[import-untyped]
+    import cocotb
 
     print(f"[copra.core] Using cocotb version: {cocotb.__version__}")
 except (ImportError, AttributeError):
@@ -1320,14 +1316,13 @@ def _run_discovery_simulation(top_module: str) -> HierarchyObject:
         import cocotb
 
         if hasattr(cocotb, "top") and cocotb.top is not None:
-            print("[copra] Using cocotb.top as DUT")
-            # Check if cocotb.top is a HierarchyObject, if not try to cast it
             if isinstance(cocotb.top, HierarchyObject):
                 return cocotb.top
             else:
                 # cocotb.top might be a SimHandleBase, try to use it anyway
                 # since HierarchyObject is a subclass of SimHandleBase
-                return cocotb.top
+                from typing import cast
+                return cast(HierarchyObject, cocotb.top)
     except (ImportError, AttributeError):
         pass
 

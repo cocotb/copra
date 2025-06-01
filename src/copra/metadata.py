@@ -148,7 +148,7 @@ class SignalMetadataExtractor:
                     return len(obj.range)
                 # Handle range as a range object
                 elif hasattr(obj.range, 'start') and hasattr(obj.range, 'stop'):
-                    return obj.range.stop - obj.range.start
+                    return int(obj.range.stop - obj.range.start)
                 else:
                     return int(obj.range)
             except (TypeError, AttributeError, ValueError):
@@ -547,7 +547,8 @@ def extract_comprehensive_metadata(hierarchy: Dict[str, type]) -> Dict[str, Sign
     for path, signal_type in hierarchy.items():
         try:
             # Create a mock object for metadata extraction if we have a type
-            if signal_type == Mock or (hasattr(signal_type, '__name__') and signal_type.__name__ == 'Mock'):
+            if (signal_type == Mock or
+                (hasattr(signal_type, '__name__') and signal_type.__name__ == 'Mock')):
                 # Create a proper mock object for extraction
                 mock_obj = Mock()
                 mock_obj._name = path.split('.')[-1]

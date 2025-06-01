@@ -15,9 +15,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union, cast
 
 try:
-    import cocotb  # type: ignore[import-untyped]
-    from cocotb.handle import HierarchyObject  # type: ignore[import-untyped]
-    from cocotb_tools.runner import get_runner  # type: ignore[import-not-found]
+    import cocotb
+    from cocotb.handle import HierarchyObject
+    from cocotb_tools.runner import get_runner
 
     COCOTB_AVAILABLE = True
 except ImportError:
@@ -265,9 +265,12 @@ def extract_hierarchy(obj, path="", max_depth=10, current_depth=0):
                     }}
 
                     # Recursively explore if it's hierarchical
-                    if isinstance(child, HierarchyObject) and current_depth < max_depth - 1:
-                        sub_hierarchy = extract_hierarchy(child, full_path, max_depth, current_depth + 1)
-                        hierarchy.update(sub_hierarchy)
+                    if (isinstance(child, HierarchyObject) and
+                        current_depth < max_depth - 1):
+                        sub_hierarchy = extract_hierarchy(
+                            child, full_path, max_depth, current_depth + 1
+                        )
+                    hierarchy.update(sub_hierarchy)
         except (TypeError, AttributeError):
             # Method 2: Try using _sub_handles if iteration doesn't work
             if hasattr(obj, '_sub_handles') and obj._sub_handles:
@@ -278,21 +281,28 @@ def extract_hierarchy(obj, path="", max_depth=10, current_depth=0):
                             "name": name,
                             "type": type(handle).__name__,
                             "path": full_path,
-                            "width": getattr(handle, "_width", 1) if hasattr(handle, "_width") else 1,
+                            "width": (getattr(handle, "_width", 1)
+                                     if hasattr(handle, "_width") else 1),
                             "is_hierarchical": isinstance(handle, HierarchyObject),
                         }}
 
                         # Recursively explore if it's hierarchical
-                        if isinstance(handle, HierarchyObject) and current_depth < max_depth - 1:
-                            sub_hierarchy = extract_hierarchy(handle, full_path, max_depth, current_depth + 1)
-                            hierarchy.update(sub_hierarchy)
+                        if (isinstance(handle, HierarchyObject) and
+                            current_depth < max_depth - 1):
+                            sub_hierarchy = extract_hierarchy(
+                                handle, full_path, max_depth, current_depth + 1
+                            )
+                        hierarchy.update(sub_hierarchy)
             else:
                 # Method 3: Try attribute-based discovery as fallback
                 try:
                     # Get a list of potential child names
                     child_names = []
                     if hasattr(obj, '__dict__'):
-                        child_names.extend([name for name in obj.__dict__.keys() if not name.startswith('_')])
+                        child_names.extend([
+                            name for name in obj.__dict__.keys()
+                            if not name.startswith('_')
+                        ])
 
                     # Also try dir() but filter carefully
                     for name in dir(obj):
@@ -313,13 +323,17 @@ def extract_hierarchy(obj, path="", max_depth=10, current_depth=0):
                                     "name": name,
                                     "type": type(attr).__name__,
                                     "path": full_path,
-                                    "width": getattr(attr, "_width", 1) if hasattr(attr, "_width") else 1,
+                                    "width": (getattr(attr, "_width", 1)
+                                             if hasattr(attr, "_width") else 1),
                                     "is_hierarchical": isinstance(attr, HierarchyObject),
                                 }}
 
                                 # Recursively explore if it's hierarchical
-                                if isinstance(attr, HierarchyObject) and current_depth < max_depth - 1:
-                                    sub_hierarchy = extract_hierarchy(attr, full_path, max_depth, current_depth + 1)
+                                if (isinstance(attr, HierarchyObject) and
+                                    current_depth < max_depth - 1):
+                                    sub_hierarchy = extract_hierarchy(
+                                        attr, full_path, max_depth, current_depth + 1
+                                    )
                                     hierarchy.update(sub_hierarchy)
                         except (AttributeError, TypeError, Exception):
                             # Skip attributes that can't be accessed
@@ -351,7 +365,8 @@ async def discover_dut_hierarchy(dut):
     if hasattr(dut, '_discover_all'):
         dut._discover_all()
 
-    print(f"Starting hierarchy discovery for DUT: {{dut._name if hasattr(dut, '_name') else 'unknown'}}")
+    print(f"Starting hierarchy discovery for DUT: "
+          f"{{dut._name if hasattr(dut, '_name') else 'unknown'}}")
     print(f"DUT type: {{type(dut).__name__}}")
 
     # Extract hierarchy information starting from the DUT
@@ -360,8 +375,14 @@ async def discover_dut_hierarchy(dut):
     print(f"Discovered {{len(hierarchy)}} items in hierarchy")
 
     # Print some debug info about what we found
-    hierarchical_items = [path for path, info in hierarchy.items() if info.get("is_hierarchical", False)]
-    signal_items = [path for path, info in hierarchy.items() if not info.get("is_hierarchical", False)]
+    hierarchical_items = [
+        path for path, info in hierarchy.items()
+        if info.get("is_hierarchical", False)
+    ]
+    signal_items = [
+        path for path, info in hierarchy.items()
+        if not info.get("is_hierarchical", False)
+    ]
 
     print(f"Hierarchical objects: {{len(hierarchical_items)}}")
     for item in sorted(hierarchical_items)[:10]:  # Show first 10

@@ -668,12 +668,7 @@ cocotb test functions.
             args: Parsed command line arguments.
 
         """
-        try:
-            import yaml  # type: ignore[import-untyped]
-        except ImportError:
-            raise ImportError(
-                "PyYAML is required for YAML output format. Install with: pip install PyYAML"
-            )
+        import yaml  # type: ignore[import-untyped]
 
         if not getattr(args, "quiet", False):
             print(f"[copra] Generating YAML output: {output_path}")

@@ -6,7 +6,7 @@ clock and reset handling, multiple test scenarios, and TestFactory integration.
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import Timer, RisingEdge, FallingEdge, ClockCycles
+from cocotb.triggers import ClockCycles
 from cocotb.regression import TestFactory
 from typing import cast, Any
 
