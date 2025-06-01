@@ -1,0 +1,30 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint with nox
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+        cache: 'pip'
+        
+    - name: Install nox
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install nox
+        
+    - name: Run lint (ruff + mypy)
+      run: |
+        python -m nox -s lint
