@@ -27,6 +27,7 @@ classifiers = [
 dependencies = [
     "cocotb @ git+https://github.com/cocotb/cocotb.git@master", # change to cocotb>=2.0.0 when released
     "ipython>=8.12.3",
+    "pytest>=8.3.5",
 ]
 
 [project.optional-dependencies]
