@@ -18,14 +18,9 @@ all: $(EXAMPLE_TESTS)
 $(EXAMPLE_TESTS):
 	@cd $@ && $(MAKE)
 
-copra-discover:
+copra:
 	for example in $(EXAMPLES); do \
-		uv run copra discover $$example --top $$example; \
-	done
-
-copra-stubgen: copra-discover
-	for example in $(EXAMPLES); do \
-		uv run copra stubgen $$example --top $$example; \
+		uv run copra generate $$example --top $$example; \
 	done
 
 .PHONY: clean

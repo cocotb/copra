@@ -1,18 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Generator, List
+from typing import Dict, Any, Optional, List
 
 from cocotb.handle import (
     HierarchyArrayObject,
     HierarchyObject,
     SimHandleBase,
 )
-
-from .utils import dump_pickle
-
-
 @dataclass(slots=True)
 class HDLNode:
     path: str
@@ -21,76 +16,96 @@ class HDLNode:
     is_scope: bool
 
 
-def _walk(obj: SimHandleBase) -> Generator[SimHandleBase, None, None]:
-    yield obj
+class HierarchyDict(Dict[str, Any]):
+    """A mutating dictionary that builds hierarchy iteratively during discovery."""
+    
+    def __init__(self) -> None:
+        super().__init__()
+        self._nodes: Dict[str, HDLNode] = {}
+        self._tree: Dict[str, Any] = {}
+    
+    def add_node(self, obj: SimHandleBase, path: str) -> None:
+        """Add a node to the hierarchy, building the tree structure as we go."""
+        width = len(obj) if hasattr(obj, "__len__") else None
+        is_scope = isinstance(obj, (HierarchyObject, HierarchyArrayObject))
+        
+        node = HDLNode(
+            path=path,
+            py_type=type(obj).__name__,
+            width=width,
+            is_scope=is_scope,
+        )
+        self._nodes[path] = node
+        self._build_tree_node(node)
+    
+    def _build_tree_node(self, node: HDLNode) -> None:
+        """Build tree structure for a single node as it's discovered."""
+        path_parts = node.path.split(".")
+        current = self._tree
+        
+        for i, part in enumerate(path_parts):
+            if part not in current:
+                current[part] = {"_node": None, "_children": {}}
+            
+            if i == len(path_parts) - 1:
+                current[part]["_node"] = node
+            
+            current = current[part]["_children"]
+    
+    def get_nodes(self) -> list[HDLNode]:
+        """Get all nodes as a list."""
+        return list(self._nodes.values())
+    
+    def get_tree(self) -> Dict[str, Any]:
+        """Get the built tree structure."""
+        return self._tree
+
+
+async def discover(dut) -> HierarchyDict:
+    """Discover hierarchy iteratively while building, avoiding explore-then-rebuild pattern."""
+    dut._discover_all()
+    hierarchy = HierarchyDict()
+    await _discover_iterative(dut, hierarchy, "")
+    return hierarchy
+
+async def _discover_iterative(
+    obj: SimHandleBase, 
+    hierarchy: HierarchyDict, 
+    path_prefix: str,
+    max_depth: int = 50,
+    current_depth: int = 0
+) -> None:
+    """Iteratively discover hierarchy while building the tree structure."""
+    if current_depth > max_depth:
+        return
+    
+    obj_name = getattr(obj, "_name", None)
+    if obj_name is None:
+        return
+    
+    full_path = f"{path_prefix}.{obj_name}" if path_prefix else obj_name
+    
+    hierarchy.add_node(obj, full_path)
+    
     if isinstance(obj, HierarchyArrayObject):
         try:
             for idx in obj.range:
-                yield from _walk(obj[idx])
+                child = obj[idx]
+                await _discover_iterative(
+                    child, 
+                    hierarchy, 
+                    full_path, 
+                    max_depth, 
+                    current_depth + 1
+                )
         except RuntimeError:
             pass
     elif isinstance(obj, HierarchyObject):
         for child in obj:
-            yield from _walk(child)
-
-
-async def discover(dut) -> List[HDLNode]:
-    dut._discover_all()
-    nodes: list[HDLNode] = []
-
-    for h in _walk(dut):
-        width = len(h) if hasattr(h, "__len__") else None
-        nodes.append(
-            HDLNode(
-                path=h._path,
-                py_type=type(h).__name__,
-                width=width,
-                is_scope=isinstance(h, (HierarchyObject, HierarchyArrayObject)),
+            await _discover_iterative(
+                child, 
+                hierarchy, 
+                full_path, 
+                max_depth, 
+                current_depth + 1
             )
-        )
-    return nodes
-
-
-def run_and_pickle(
-    test_module: str,
-    toplevel: Path,
-    build_dir: Path,
-    out_pickle: Path,
-) -> None:
-    from cocotb_tools.runner import get_runner
-    
-    tb_content = f'''
-import cocotb
-from pathlib import Path
-from copra.discovery import discover
-from copra.utils import dump_pickle
-
-@cocotb.test()
-async def _copra_hierarchy_test(dut):
-    nodes = await discover(dut)
-    dump_pickle(nodes, Path(r"{out_pickle}"))
-'''
-
-    tb_path = build_dir / "copra_tb.py"
-    tb_path.parent.mkdir(parents=True, exist_ok=True)
-    tb_path.write_text(tb_content)
-
-    rtl_dir = toplevel.parent
-    all_sources = list(rtl_dir.glob("*.sv")) + list(rtl_dir.glob("*.v"))
-
-    runner = get_runner("icarus")
-    
-    runner.build(
-        verilog_sources=all_sources,
-        hdl_toplevel=toplevel.stem,
-        build_dir=build_dir,
-        verbose=True,
-    )
-    
-    runner.test(
-        test_module="copra_tb",
-        hdl_toplevel=toplevel.stem,
-        build_dir=build_dir,
-        test_dir=build_dir,
-        verbose=True,
-    )
