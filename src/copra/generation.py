@@ -22,7 +22,6 @@ def _generate_class(name: str, tree_node: Dict, depth: int = 0) -> List[str]:
                     child_class_name = f"{child_name.title().replace('_', '')}"
                     lines.append(indent(f"{child_name}: {child_class_name}", "    "))
                 else:
-                    # target = _CLASS_MAP.get(child_node.py_type, f"cocotb.handle.{child_node.py_type}")
                     target = f"_hdl.{child_node.py_type}"
                     lines.append(indent(f"{child_name}: {target}", "    "))
         
@@ -67,7 +66,6 @@ def generate_stub(hierarchy: HierarchyDict, out_dir: Path) -> Path:
                     child_class_name = f"{child_name.title().replace('_', '')}"
                     lines.append(indent(f"{child_name}: {child_class_name}", "    "))
                 else:
-                    # target = _CLASS_MAP.get(child_node.py_type, f"cocotb.handle.{child_node.py_type}")
                     target = f"_hdl.{child_node.py_type}"
                     lines.append(indent(f"{child_name}: {target}", "    "))
         
