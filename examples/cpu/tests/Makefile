@@ -14,7 +14,9 @@ ifeq ($(TOPLEVEL_LANG),verilog)
     VERILOG_SOURCES += $(PWD)/../rtl/support_modules.sv
     VERILOG_SOURCES += $(PWD)/../rtl/clock_gen.sv
     # Compile options for SystemVerilog features
+    ifeq ($(SIM),icarus)
     COMPILE_ARGS += -g2012
+    endif
 else
     $(error A valid value (verilog) was not provided for TOPLEVEL_LANG=$(TOPLEVEL_LANG))
 endif
