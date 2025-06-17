@@ -1,17 +1,26 @@
 import subprocess, sys, pathlib
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]  # repo root
+ROOT = pathlib.Path(__file__).resolve().parents[1]  # repo root
 
 def test_stubs_typecheck() -> None:
     """Fail if mypy finds *any* typing errors anywhere under examples/."""
-    cmd = [
-        sys.executable, "-m", "mypy",
-        "--config-file", str(ROOT / "pyproject.toml"),
-        str(ROOT / "examples"),
+    examples_dir = ROOT / "examples"
+    
+    errors = [
+        f"Errors in {d.name}:\n{subprocess.run([
+            sys.executable, '-m', 'mypy',
+            '--config-file', str(ROOT / 'pyproject.toml'),
+            str(d / 'copra_stubs')
+        ], capture_output=True, text=True).stdout}"
+        for d in examples_dir.iterdir()
+        if d.is_dir() and (d / "copra_stubs").exists() 
+        and subprocess.run([
+            sys.executable, '-m', 'mypy',
+            '--config-file', str(ROOT / 'pyproject.toml'), 
+            str(d / 'copra_stubs')
+        ], capture_output=True, text=True).returncode
     ]
-    completed = subprocess.run(
-        cmd, capture_output=True, text=True
-    )
-    if completed.returncode:            # mypy raised complaints
-        print(completed.stdout)          # forward full report to pytest
-    assert completed.returncode == 0
+
+    if errors:
+        print("\n".join(errors))
+    assert not errors, f"MyPy found {len(errors)} example(s) with type errors"
