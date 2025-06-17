@@ -10,7 +10,7 @@ import random
 import math
 
 if TYPE_CHECKING:
-    from examples.dsp_pipeline.copra_stubs.dut import DUT
+    from copra_stubs.dut import DUT
 
 @cocotb.test()
 async def test_dsp_pipeline_reset(dut: DUT):

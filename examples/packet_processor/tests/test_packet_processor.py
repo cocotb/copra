@@ -10,7 +10,7 @@ import random
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from examples.packet_processor.copra_stubs.dut import DUT
+    from copra_stubs.dut import DUT
 
 
 @cocotb.test()

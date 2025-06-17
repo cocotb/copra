@@ -9,7 +9,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
 
 if TYPE_CHECKING:
-    from examples.cpu.copra_stubs.dut import DUT
+    from copra_stubs.dut import DUT
 
 
 @cocotb.test()

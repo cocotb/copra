@@ -9,9 +9,7 @@ from cocotb.triggers import RisingEdge, Timer, ClockCycles
 
 
 if TYPE_CHECKING:
-    from examples.dff.copra_stubs.dut import DUT
-    dut: DUT
-
+    from copra_stubs.dut import DUT
 
 @cocotb.test()
 async def test_dff_reset(dut: DUT):
