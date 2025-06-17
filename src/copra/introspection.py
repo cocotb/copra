@@ -53,7 +53,7 @@ def extract_full_type_info(obj: SimHandleBase) -> str:
                 if has_len and len(obj) > 0:  # type: ignore
                     first_idx = next(iter(obj.range))  # type: ignore
                     child = obj[first_idx]  # type: ignore
-                    child_type_info = _extract_full_type_info(child)  # type: ignore
+                    child_type_info = extract_full_type_info(child)  # type: ignore
                     elem_value_type = "Any"
                     if hasattr(child, 'get') and callable(getattr(child, 'get', None)):  # type: ignore
                         try:
