@@ -2,14 +2,19 @@
 """
 Cocotb 2.0 tests for DFF example
 """
-
+from typing import TYPE_CHECKING
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, FallingEdge, Timer, ClockCycles
+from cocotb.triggers import RisingEdge, Timer, ClockCycles
+
+
+if TYPE_CHECKING:
+    from examples.dff.copra_stubs.dut import DUT
+    dut: DUT
 
 
 @cocotb.test()
-async def test_dff_reset(dut):
+async def test_dff_reset(dut: DUT):
     """Test that the DFF correctly resets when rst_n is low."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -28,7 +33,7 @@ async def test_dff_reset(dut):
 
 
 @cocotb.test()
-async def test_dff_basic_functionality(dut):
+async def test_dff_basic_functionality(dut: DUT):
     """Test basic D flip-flop functionality."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -56,7 +61,7 @@ async def test_dff_basic_functionality(dut):
 
 
 @cocotb.test()
-async def test_dff_data_sequence(dut):
+async def test_dff_data_sequence(dut: DUT):
     """Test DFF with a sequence of data patterns."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -83,7 +88,7 @@ async def test_dff_data_sequence(dut):
 
 
 @cocotb.test()
-async def test_dff_reset_during_operation(dut):
+async def test_dff_reset_during_operation(dut: DUT):
     """Test that reset works correctly during normal operation."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -117,7 +122,7 @@ async def test_dff_reset_during_operation(dut):
 
 
 @cocotb.test()
-async def test_dff_setup_hold_timing(dut):
+async def test_dff_setup_hold_timing(dut: DUT):
     """Test setup and hold time requirements (basic test)."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")

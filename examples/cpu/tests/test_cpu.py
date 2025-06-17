@@ -3,14 +3,17 @@
 Cocotb 2.0 tests for CPU example
 """
 
+from typing import TYPE_CHECKING
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, FallingEdge, Timer, ClockCycles, with_timeout
-import random
+from cocotb.triggers import ClockCycles
+
+if TYPE_CHECKING:
+    from examples.cpu.copra_stubs.dut import DUT
 
 
 @cocotb.test()
-async def test_cpu_reset(dut):
+async def test_cpu_reset(dut: DUT):
     """Test that the CPU correctly resets."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")  # 100 MHz
@@ -86,7 +89,7 @@ async def test_cpu_reset(dut):
 
 
 @cocotb.test()
-async def test_cpu_core_enable_disable(dut):
+async def test_cpu_core_enable_disable(dut: DUT):
     """Test CPU core enable/disable functionality."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -124,7 +127,7 @@ async def test_cpu_core_enable_disable(dut):
 
 
 @cocotb.test()
-async def test_cpu_instruction_fetch_axi(dut):
+async def test_cpu_instruction_fetch_axi(dut: DUT):
     """Test CPU instruction fetch AXI interface."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -172,7 +175,7 @@ async def test_cpu_instruction_fetch_axi(dut):
 
 
 @cocotb.test()
-async def test_cpu_data_memory_axi(dut):
+async def test_cpu_data_memory_axi(dut: DUT):
     """Test CPU data memory AXI interface."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -242,7 +245,7 @@ async def test_cpu_data_memory_axi(dut):
 
 
 @cocotb.test()
-async def test_cpu_apb_interface(dut):
+async def test_cpu_apb_interface(dut: DUT):
     """Test CPU APB slave interface."""
     # Create clock and APB clock
     clock = Clock(dut.clk, 10, "ns")
@@ -299,7 +302,7 @@ async def test_cpu_apb_interface(dut):
         await ClockCycles(dut.s_apb_pclk, 1)
     
     # APB read transactions
-    for addr, expected_data in apb_writes:
+    for addr, _ in apb_writes:
         # Setup phase
         dut.s_apb_paddr.value = addr
         dut.s_apb_pwrite.value = 0  # Read
@@ -336,7 +339,7 @@ async def test_cpu_apb_interface(dut):
 
 
 @cocotb.test()
-async def test_cpu_interrupt_handling(dut):
+async def test_cpu_interrupt_handling(dut: DUT):
     """Test CPU interrupt handling."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -383,7 +386,7 @@ async def test_cpu_interrupt_handling(dut):
 
 
 @cocotb.test()
-async def test_cpu_debug_interface(dut):
+async def test_cpu_debug_interface(dut: DUT):
     """Test CPU debug interface."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -454,7 +457,7 @@ async def test_cpu_debug_interface(dut):
 
 
 @cocotb.test()
-async def test_cpu_performance_monitoring(dut):
+async def test_cpu_performance_monitoring(dut: DUT):
     """Test CPU performance monitoring."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -501,7 +504,7 @@ async def test_cpu_performance_monitoring(dut):
 
 
 @cocotb.test()
-async def test_cpu_multi_core_operation(dut):
+async def test_cpu_multi_core_operation(dut: DUT):
     """Test multi-core CPU operation."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -536,7 +539,7 @@ async def test_cpu_multi_core_operation(dut):
 
 
 @cocotb.test()
-async def test_cpu_test_mode(dut):
+async def test_cpu_test_mode(dut: DUT):
     """Test CPU test mode functionality."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")

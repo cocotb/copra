@@ -5,12 +5,16 @@ Cocotb 2.0 tests for Memory Controller example
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, FallingEdge, Timer, ClockCycles, with_timeout
+from cocotb.triggers import ClockCycles
 import random
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from examples.memory_controller.copra_stubs.dut import DUT
 
 
 @cocotb.test()
-async def test_memory_controller_reset(dut):
+async def test_memory_controller_reset(dut: DUT):
     """Test that the memory controller correctly resets."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -41,7 +45,7 @@ async def test_memory_controller_reset(dut):
 
 
 @cocotb.test()
-async def test_memory_controller_basic_operation(dut):
+async def test_memory_controller_basic_operation(dut: DUT):
     """Test basic memory controller operation."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -80,7 +84,7 @@ async def test_memory_controller_basic_operation(dut):
 
 
 @cocotb.test()
-async def test_memory_controller_write_operation(dut):
+async def test_memory_controller_write_operation(dut: DUT):
     """Test memory controller write operation."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -118,7 +122,7 @@ async def test_memory_controller_write_operation(dut):
 
 
 @cocotb.test()
-async def test_memory_controller_multi_channel(dut):
+async def test_memory_controller_multi_channel(dut: DUT):
     """Test multi-channel memory controller operation."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -177,7 +181,7 @@ async def test_memory_controller_multi_channel(dut):
 
 
 @cocotb.test()
-async def test_memory_controller_refresh(dut):
+async def test_memory_controller_refresh(dut: DUT):
     """Test memory controller refresh operation."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -214,7 +218,7 @@ async def test_memory_controller_refresh(dut):
 
 
 @cocotb.test()
-async def test_memory_controller_disable(dut):
+async def test_memory_controller_disable(dut: DUT):
     """Test memory controller disable functionality."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -254,7 +258,7 @@ async def test_memory_controller_disable(dut):
 
 
 @cocotb.test()
-async def test_memory_controller_performance_counters(dut):
+async def test_memory_controller_performance_counters(dut: DUT):
     """Test memory controller performance monitoring."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -294,7 +298,7 @@ async def test_memory_controller_performance_counters(dut):
 
 
 @cocotb.test()
-async def test_memory_controller_stress(dut):
+async def test_memory_controller_stress(dut: DUT):
     """Stress test with random operations."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")

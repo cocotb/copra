@@ -5,12 +5,16 @@ Cocotb 2.0 tests for Packet Processor example
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, FallingEdge, Timer, ClockCycles, with_timeout
+from cocotb.triggers import ClockCycles
 import random
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from examples.packet_processor.copra_stubs.dut import DUT
 
 
 @cocotb.test()
-async def test_packet_processor_reset(dut):
+async def test_packet_processor_reset(dut: DUT):
     """Test that the packet processor correctly resets."""
     # Create clock
     clock = Clock(dut.clk, 6.4, "ns")  # 156.25 MHz
@@ -50,7 +54,7 @@ async def test_packet_processor_reset(dut):
 
 
 @cocotb.test()
-async def test_packet_processor_enable_disable(dut):
+async def test_packet_processor_enable_disable(dut: DUT):
     """Test packet processor enable/disable functionality."""
     # Create clock
     clock = Clock(dut.clk, 6.4, "ns")
@@ -83,7 +87,7 @@ async def test_packet_processor_enable_disable(dut):
 
 
 @cocotb.test()
-async def test_packet_processor_bypass_mode(dut):
+async def test_packet_processor_bypass_mode(dut: DUT):
     """Test packet processor bypass mode."""
     # Create clock
     clock = Clock(dut.clk, 6.4, "ns")
@@ -130,7 +134,7 @@ async def test_packet_processor_bypass_mode(dut):
 
 
 @cocotb.test()
-async def test_packet_processor_multi_port(dut):
+async def test_packet_processor_multi_port(dut: DUT):
     """Test multi-port packet processing."""
     # Create clock
     clock = Clock(dut.clk, 6.4, "ns")
@@ -179,7 +183,7 @@ async def test_packet_processor_multi_port(dut):
 
 
 @cocotb.test()
-async def test_packet_processor_statistics(dut):
+async def test_packet_processor_statistics(dut: DUT):
     """Test packet processor statistics counters."""
     # Create clock
     clock = Clock(dut.clk, 6.4, "ns")
@@ -231,7 +235,7 @@ async def test_packet_processor_statistics(dut):
 
 
 @cocotb.test()
-async def test_packet_processor_configuration(dut):
+async def test_packet_processor_configuration(dut: DUT):
     """Test packet processor configuration interface."""
     # Create clock
     clock = Clock(dut.clk, 6.4, "ns")
@@ -266,7 +270,7 @@ async def test_packet_processor_configuration(dut):
         await ClockCycles(dut.clk, 2)
     
     # Read back configuration registers
-    for addr, expected_data in config_writes:
+    for addr, _ in config_writes:
         dut.config_addr.value = addr
         dut.config_strobe.value = 0  # Read operation
         
@@ -279,7 +283,7 @@ async def test_packet_processor_configuration(dut):
 
 
 @cocotb.test()
-async def test_packet_processor_error_handling(dut):
+async def test_packet_processor_error_handling(dut: DUT):
     """Test packet processor error handling."""
     # Create clock
     clock = Clock(dut.clk, 6.4, "ns")
@@ -328,7 +332,7 @@ async def test_packet_processor_error_handling(dut):
 
 
 @cocotb.test()
-async def test_packet_processor_debug_mode(dut):
+async def test_packet_processor_debug_mode(dut: DUT):
     """Test packet processor debug mode."""
     # Create clock
     clock = Clock(dut.clk, 6.4, "ns")
@@ -369,7 +373,7 @@ async def test_packet_processor_debug_mode(dut):
 
 
 @cocotb.test()
-async def test_packet_processor_power_save_mode(dut):
+async def test_packet_processor_power_save_mode(dut: DUT):
     """Test packet processor power save mode."""
     # Create clock
     clock = Clock(dut.clk, 6.4, "ns")
@@ -410,7 +414,7 @@ async def test_packet_processor_power_save_mode(dut):
 
 
 @cocotb.test()
-async def test_packet_processor_stress(dut):
+async def test_packet_processor_stress(dut: DUT):
     """Stress test with random packet patterns."""
     # Create clock
     clock = Clock(dut.clk, 6.4, "ns")

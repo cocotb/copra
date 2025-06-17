@@ -2,16 +2,18 @@
 """
 Cocotb 2.0 tests for DSP Pipeline example
 """
-
+from typing import TYPE_CHECKING
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, FallingEdge, Timer, ClockCycles, with_timeout
+from cocotb.triggers import ClockCycles
 import random
 import math
 
+if TYPE_CHECKING:
+    from examples.dsp_pipeline.copra_stubs.dut import DUT
 
 @cocotb.test()
-async def test_dsp_pipeline_reset(dut):
+async def test_dsp_pipeline_reset(dut: DUT):
     """Test that the DSP pipeline correctly resets."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -43,7 +45,7 @@ async def test_dsp_pipeline_reset(dut):
 
 
 @cocotb.test()
-async def test_dsp_pipeline_bypass_mode(dut):
+async def test_dsp_pipeline_bypass_mode(dut: DUT):
     """Test DSP pipeline bypass mode functionality."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -60,7 +62,7 @@ async def test_dsp_pipeline_bypass_mode(dut):
     # Test sequence of data through bypass
     test_data = [0x12345678, 0xABCDEF00, 0x55AA55AA, 0xFF00FF00]
     
-    for i, data in enumerate(test_data):
+    for data in test_data:
         # Apply input
         dut.data_in.value = data
         dut.data_valid_in.value = 1
@@ -82,7 +84,7 @@ async def test_dsp_pipeline_bypass_mode(dut):
 
 
 @cocotb.test()
-async def test_dsp_pipeline_normal_processing(dut):
+async def test_dsp_pipeline_normal_processing(dut: DUT):
     """Test DSP pipeline normal processing mode."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -132,7 +134,7 @@ async def test_dsp_pipeline_normal_processing(dut):
 
 
 @cocotb.test()
-async def test_dsp_pipeline_multi_channel(dut):
+async def test_dsp_pipeline_multi_channel(dut: DUT):
     """Test multi-channel DSP pipeline operation."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -172,7 +174,7 @@ async def test_dsp_pipeline_multi_channel(dut):
 
 
 @cocotb.test()
-async def test_dsp_pipeline_status_monitoring(dut):
+async def test_dsp_pipeline_status_monitoring(dut: DUT):
     """Test DSP pipeline status and performance monitoring."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -215,7 +217,7 @@ async def test_dsp_pipeline_status_monitoring(dut):
 
 
 @cocotb.test()
-async def test_dsp_pipeline_disable_enable(dut):
+async def test_dsp_pipeline_disable_enable(dut: DUT):
     """Test DSP pipeline disable/enable functionality."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -253,7 +255,7 @@ async def test_dsp_pipeline_disable_enable(dut):
 
 
 @cocotb.test()
-async def test_dsp_pipeline_filter_coefficients(dut):
+async def test_dsp_pipeline_filter_coefficients(dut: DUT):
     """Test DSP pipeline with different filter coefficients."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -314,7 +316,7 @@ async def test_dsp_pipeline_filter_coefficients(dut):
 
 
 @cocotb.test()
-async def test_dsp_pipeline_configuration(dut):
+async def test_dsp_pipeline_configuration(dut: DUT):
     """Test DSP pipeline configuration parameters."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
@@ -349,7 +351,7 @@ async def test_dsp_pipeline_configuration(dut):
 
 
 @cocotb.test()
-async def test_dsp_pipeline_stress(dut):
+async def test_dsp_pipeline_stress(dut: DUT):
     """Stress test with continuous data flow."""
     # Create clock
     clock = Clock(dut.clk, 10, "ns")
