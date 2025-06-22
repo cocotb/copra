@@ -7,8 +7,7 @@ TOPLEVEL_LANG ?= verilog
 PWD=$(shell pwd)
 
 ifeq ($(TOPLEVEL_LANG),verilog)
-    VERILOG_SOURCES = $(PWD)/../rtl/cpu_top.sv
-    VERILOG_SOURCES += $(PWD)/../rtl/cpu.sv
+    VERILOG_SOURCES = $(PWD)/../rtl/cpu.sv
     VERILOG_SOURCES += $(PWD)/../rtl/core.sv
     VERILOG_SOURCES += $(PWD)/../rtl/pipeline_stages.sv
     VERILOG_SOURCES += $(PWD)/../rtl/support_modules.sv
@@ -21,7 +20,7 @@ else
     $(error A valid value (verilog) was not provided for TOPLEVEL_LANG=$(TOPLEVEL_LANG))
 endif
 
-COCOTB_TOPLEVEL     := cpu_top
+COCOTB_TOPLEVEL     := cpu
 COCOTB_TEST_MODULES := test_cpu
 
 # Use uv to run with cocotb 2.0
