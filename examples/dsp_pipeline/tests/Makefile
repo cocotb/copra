@@ -11,6 +11,7 @@ ifeq ($(TOPLEVEL_LANG),verilog)
     VERILOG_SOURCES += $(PWD)/../rtl/processing_stage.sv
     VERILOG_SOURCES += $(PWD)/../rtl/channel_processor.sv
     VERILOG_SOURCES += $(PWD)/../rtl/filter_tap.sv
+    VERILOG_SOURCES += $(PWD)/../rtl/fft_butterfly.sv
     # Note: fft_butterfly module is defined within filter_tap.sv
     # Compile options for SystemVerilog features
     COMPILE_ARGS += -g2012
