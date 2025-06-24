@@ -3,18 +3,21 @@
 Cocotb 2.0 tests for CPU example
 """
 
-from typing import TYPE_CHECKING
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from copra_stubs.dut import DUT
+else:
+    DUT = Any
 
 
 @cocotb.test()
 async def test_cpu_reset(dut: DUT):
     """Test that the CPU correctly resets."""
+    
     # Create clock
     clock = Clock(dut.clk, 10, "ns")  # 100 MHz
     clock.start()

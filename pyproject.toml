@@ -12,6 +12,7 @@ license = {text = "BSD-3-Clause"}
 authors = [
     {name = "cocotb contributors"}
 ]
+
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -35,12 +36,13 @@ dependencies = [
 dev = [
     "pytest>=6.0",
     "pytest-cov>=2.0",
-    "mypy>=1.0.0",
     "ruff>=0.1.0",
     "pre-commit>=2.0.0",
     "sphinx>=4.0.0",
     "sphinx-book-theme>=1.0.0",
     "sphinx-copybutton>=0.5.0",
+    "pytest-mypy-plugins>=0.1.0",
+    "mypy>=1.10,<2",
 ]
 
 [project.scripts]
@@ -82,6 +84,13 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
+strict = true
+mypy_path = [
+  "examples/cpu/copra_stubs",
+  "examples/dff/copra_stubs",
+]
+plugins = []
+show_error_codes = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

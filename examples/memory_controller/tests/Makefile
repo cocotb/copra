@@ -19,6 +19,8 @@ else
 endif
 
 COCOTB_TOPLEVEL     := memory_controller
-COCOTB_TEST_MODULES := test_memory_controller
+COCOTB_TEST_MODULES := copra.integration.autostub,test_memory_controller
+
+export COPRA_STUB_DIR=$(PWD)/copra_stubs
 
 include $(shell uv run cocotb-config --makefiles)/Makefile.sim 

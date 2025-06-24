@@ -2,7 +2,7 @@
 """
 Cocotb 2.0 tests for DSP Pipeline example
 """
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
@@ -11,7 +11,8 @@ import math
 
 if TYPE_CHECKING:
     from copra_stubs.dut import DUT
-
+else:
+    DUT = Any
 @cocotb.test()
 async def test_dsp_pipeline_reset(dut: DUT):
     """Test that the DSP pipeline correctly resets."""

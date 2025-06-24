@@ -7,11 +7,12 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from copra_stubs.dut import DUT
-
+else:
+    DUT = Any
 
 @cocotb.test()
 async def test_packet_processor_reset(dut: DUT):

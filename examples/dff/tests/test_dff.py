@@ -2,14 +2,15 @@
 """
 Cocotb 2.0 tests for DFF example
 """
-from typing import TYPE_CHECKING
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer, ClockCycles
-
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from copra_stubs.dut import DUT
+else:
+    DUT = Any
 
 @cocotb.test()
 async def test_dff_reset(dut: DUT):

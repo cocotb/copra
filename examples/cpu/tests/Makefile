@@ -21,9 +21,10 @@ else
 endif
 
 COCOTB_TOPLEVEL     := cpu
-COCOTB_TEST_MODULES := test_cpu
+COCOTB_TEST_MODULES := copra.integration.autostub,test_cpu
 
 # Use uv to run with cocotb 2.0
 PYTHON ?= uv run python
 
+export COPRA_STUB_DIR=$(PWD)/copra_stubs
 include $(shell uv run cocotb-config --makefiles)/Makefile.sim 

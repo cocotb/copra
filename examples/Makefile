@@ -10,13 +10,15 @@ EXAMPLES := dff \
 
 EXAMPLE_TESTS := $(addsuffix /tests,$(EXAMPLES))
 
+SIM ?= icarus
+
 .PHONY: $(EXAMPLE_TESTS)
 
 .PHONY: all
 all: $(EXAMPLE_TESTS)
 
 $(EXAMPLE_TESTS):
-	@cd $@ && $(MAKE)
+	@cd $@ && SIM=$(SIM) $(MAKE)
 
 copra:
 	for example in $(EXAMPLES); do \
