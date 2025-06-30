@@ -8,6 +8,7 @@ from cocotb.handle import (
     HierarchyObject,
     SimHandleBase,
 )
+from cocotb import simulator
 from .introspection import extract_full_type_info
 
 
@@ -36,8 +37,13 @@ class HierarchyDict(Dict[str, Any]):
             except (TypeError, AttributeError):
                 width = None
         
-        mro_names = [cls.__name__ for cls in type(obj).__mro__]
-        is_scope = ('HierarchyObject' in mro_names or 'HierarchyArrayObject' in mro_names)
+        is_scope = False
+        try:
+            sim_type = obj._handle.get_type()  # type: ignore
+            is_scope = sim_type in (simulator.MODULE, simulator.STRUCTURE, 
+                                  simulator.GENARRAY, simulator.PACKAGE)
+        except Exception:
+            is_scope = isinstance(obj, (HierarchyObject, HierarchyArrayObject))
         
         node = HDLNode(
             path=path,

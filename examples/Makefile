@@ -10,15 +10,13 @@ EXAMPLES := dff \
 
 EXAMPLE_TESTS := $(addsuffix /tests,$(EXAMPLES))
 
-SIM ?= icarus
-
 .PHONY: $(EXAMPLE_TESTS)
 
 .PHONY: all
 all: $(EXAMPLE_TESTS)
 
 $(EXAMPLE_TESTS):
-	@cd $@ && SIM=$(SIM) $(MAKE)
+	@cd $@ && $(MAKE)
 
 copra:
 	for example in $(EXAMPLES); do \
@@ -28,3 +26,4 @@ copra:
 .PHONY: clean
 clean:
 	$(foreach TEST, $(EXAMPLE_TESTS), $(MAKE) -C $(TEST) clean;)
+	rm -rf $(foreach TEST, $(EXAMPLE_TESTS), $(TEST)/copra_stubs)

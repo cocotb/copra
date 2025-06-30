@@ -1,0 +1,8 @@
+# Copra
+
+Run this in the examples directory:
+```
+uv run make
+```
+
+Then check the {dff,memory_controller,dsp_pipeline,packet_processor,cpu}/tests/copra_stubs/dut.pyi
