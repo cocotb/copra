@@ -25,6 +25,6 @@ COCOTB_TEST_MODULES := copra.integration.autostub,test_dsp_pipeline
 # Use uv to run with cocotb 2.0
 PYTHON ?= uv run python
 
-export COPRA_STUB_DIR=$(PWD)/copra_stubs
+export COPRA_STUB_DIR=$(PWD)/../copra_stubs
 
 include $(shell uv run cocotb-config --makefiles)/Makefile.sim 

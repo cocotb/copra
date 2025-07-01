@@ -18,6 +18,6 @@ endif
 COCOTB_TOPLEVEL     := dff
 COCOTB_TEST_MODULES := copra.integration.autostub,test_dff
 
-export COPRA_STUB_DIR=$(PWD)/copra_stubs
+export COPRA_STUB_DIR=$(PWD)/../copra_stubs
 
 include $(shell uv run cocotb-config --makefiles)/Makefile.sim 
