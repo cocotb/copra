@@ -39,7 +39,8 @@ class HierarchyDict(Dict[str, Any]):
         
         is_scope = False
         try:
-            sim_type = obj._handle.get_type()  # type: ignore
+            handle = getattr(obj, "_handle")
+            sim_type = handle.get_type()
             is_scope = sim_type in (simulator.MODULE, simulator.STRUCTURE, 
                                   simulator.GENARRAY, simulator.PACKAGE)
         except Exception:
@@ -81,17 +82,17 @@ async def discover(dut: SimHandleBase) -> HierarchyDict:
     """Discover hierarchy iteratively while building, avoiding explore-then-rebuild pattern."""
     dut._discover_all()  # type: ignore
     hierarchy = HierarchyDict()
-    await _discover_iterative(dut, hierarchy, "")
+    await _discover_recursive(dut, hierarchy, "")
     return hierarchy
 
-async def _discover_iterative(
+async def _discover_recursive(
     obj: SimHandleBase, 
     hierarchy: HierarchyDict, 
     path_prefix: str,
     max_depth: int = 50,
     current_depth: int = 0
 ) -> None:
-    """Iteratively discover hierarchy while building the tree structure."""
+    """Recursively discover hierarchy."""
     if current_depth > max_depth:
         return
     
@@ -100,28 +101,30 @@ async def _discover_iterative(
         return
     
     full_path = f"{path_prefix}.{obj_name}" if path_prefix else obj_name
-    
     hierarchy.add_node(obj, full_path)
     
-    if isinstance(obj, HierarchyArrayObject):
-        try:
-            for idx in obj.range:
-                child = obj[idx]
-                await _discover_iterative(
+    if hasattr(obj, "_discover_all"):
+        obj._discover_all()  # type: ignore
+    
+    sub_handles = getattr(obj, "_sub_handles", {})
+    
+    for key, child in sub_handles.items():
+        if isinstance(obj, HierarchyArrayObject):
+            child_path = f"{full_path}[{key}]"
+        else:
+            child_path = f"{full_path}.{key}"
+        
+        hierarchy.add_node(child, child_path)
+        
+        child_handle = getattr(child, "_handle", None)
+        if child_handle:
+            child_sim_type = child_handle.get_type()
+            if child_sim_type in (simulator.MODULE, simulator.STRUCTURE, 
+                                simulator.GENARRAY, simulator.PACKAGE):
+                await _discover_recursive(
                     child, 
                     hierarchy, 
-                    full_path, 
+                    child_path.rsplit('.', 1)[0] if '.' in child_path else "",
                     max_depth, 
                     current_depth + 1
                 )
-        except RuntimeError:
-            pass
-    elif isinstance(obj, HierarchyObject):
-        for child in obj:
-            await _discover_iterative(
-                child, 
-                hierarchy, 
-                full_path, 
-                max_depth, 
-                current_depth + 1
-            )
