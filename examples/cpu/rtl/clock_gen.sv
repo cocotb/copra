@@ -15,7 +15,7 @@ module clock_gen #(
     // Clock gating for each core
     genvar i;
     generate
-        for (i = 0; i < NUM_CORES; i = i + 1) begin : gen_core_clocks
+        for (i = 0; i < NUM_CORES; i = i + 1) begin : gen_core_clocks  // gen_core_clocks: cocotb.handle.HierarchyArrayObject[GenCoreClocks]
             wire gated_enable;
             assign gated_enable = global_enable & core_enable[i];
             

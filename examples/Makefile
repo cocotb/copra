@@ -1,29 +1,41 @@
-# Copyright cocotb contributors
-# Licensed under the Revised BSD License, see LICENSE for details.
-# SPDX-License-Identifier: BSD-3-Clause
+# # Copyright cocotb contributors
+# # Licensed under the Revised BSD License, see LICENSE for details.
+# # SPDX-License-Identifier: BSD-3-Clause
 
-EXAMPLES := dff \
-            memory_controller \
-            dsp_pipeline \
-            packet_processor \
-            cpu
+EXAMPLES := adder/tests \
+            simple_dff \
+            matrix_multiplier/tests \
+            multi_dim_array/tests \
+            cpu/tests
 
-EXAMPLE_TESTS := $(addsuffix /tests,$(EXAMPLES))
+ifeq ($(TOPLEVEL_LANG),verilog)
+    ifeq ($(SIM),$(filter $(SIM),ius xcelium))
+        ifeq (,$(shell which spectre))
+            $(info Skipping example mixed_signal since Spectre is not available)
+        else
+            EXAMPLES += mixed_signal/tests
+        endif
+    else
+        $(info Skipping example mixed_signal since only Xcelium is supported)
+    endif
+    EXAMPLES += doc_examples/quickstart
+endif
 
-.PHONY: $(EXAMPLE_TESTS)
+.PHONY: $(EXAMPLES)
 
 .PHONY: all
-all: $(EXAMPLE_TESTS)
+all: $(EXAMPLES)
 
-$(EXAMPLE_TESTS):
+$(EXAMPLES):
 	@cd $@ && $(MAKE)
 
+# there's a copra target in each example's Makefile
 copra:
-	for example in $(EXAMPLES); do \
-		uv run copra generate $$example --top $$example; \
-	done
+	$(foreach TEST, $(EXAMPLES), $(MAKE) -C $(TEST) copra;)
 
 .PHONY: clean
 clean:
-	$(foreach TEST, $(EXAMPLE_TESTS), $(MAKE) -C $(TEST) clean;)
-	rm -rf $(foreach TEST, $(EXAMPLE_TESTS), $(TEST)/copra_stubs)
+	$(foreach TEST, $(EXAMPLES), $(MAKE) -C $(TEST) clean;)
+
+regression:
+	$(foreach TEST, $(EXAMPLES), $(MAKE) -C $(TEST) regression;)

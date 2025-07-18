@@ -1,1 +1,1 @@
-__all__ = ["discovery", "generation", "cli", "utils"]
+# Copra - Generate Python type stubs for cocotb HDL designs

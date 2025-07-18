@@ -27,7 +27,11 @@ module register_file #(
     input wire debug_we
 );
 
-    reg [DATA_WIDTH-1:0] registers [0:31];
+    reg [DATA_WIDTH-1:0] registers [0:31]; //  supposed to be `registers: cocotb.handle.ArrayObject[cocotb.types.LogicArray, cocotb.handle.LogicArrayObject]` in the stub
+    reg [DATA_WIDTH-1:0][DATA_WIDTH-1:0] registers_md [0:31]; // registers_md: cocotb.handle.ArrayObject[cocotb.types.Array[cocotb.types.LogicArray], cocotb.handle.ArrayObject[cocotb.types.LogicArray, cocotb.handle.LogicArrayObject]]
+    reg [DATA_WIDTH-1:0][DATA_WIDTH-1:0] registers_md_int; // registers_md_int: cocotb.handle.ArrayObject[cocotb.types.Array[int], cocotb.handle.ArrayObject[int, cocotb.handle.IntegerObject]]
+    
+    
     integer i;
     
     // Initialize registers
