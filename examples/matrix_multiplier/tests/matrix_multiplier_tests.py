@@ -30,6 +30,10 @@ from cocotb.types import Array, LogicArray, Range
 
 T = TypeVar("T")
 
+if TYPE_CHECKING:
+    from copra_stubs.dut import DUT
+else:
+    DUT = Any
 
 class Mailbox(Generic[T]):
     """A deque with signals for use in testbench components."""
@@ -443,7 +447,7 @@ class MatrixMultiplierTestbench:
 
 
 @cocotb.test()
-async def test_random(dut: Any) -> None:
+async def test_random(dut: DUT) -> None:
     """Test matrix multiplier with random data."""
 
     # Create the testbench, start it and go through reset

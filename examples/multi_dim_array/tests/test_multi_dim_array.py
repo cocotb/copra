@@ -15,11 +15,16 @@ This module tests various configurations of multi-dimensional arrays including:
 import random
 import cocotb
 from cocotb.triggers import Timer
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from copra_stubs.dut import DUT
+else:
+    DUT = Any
 
 
 @cocotb.test()
-async def test_1d_arrays(dut: Any):
+async def test_1d_arrays(dut: DUT):
     """Test single dimension arrays and vectors."""
     # Test packed vector
     test_val = 0b101
@@ -42,7 +47,7 @@ async def test_1d_arrays(dut: Any):
 
 
 @cocotb.test()
-async def test_2d_arrays(dut: Any):
+async def test_2d_arrays(dut: DUT):
     """Test two-dimensional arrays."""
     # Test 2D packed-packed vector
     test_val = 0b101_110_001  # 3x3 bits
@@ -66,12 +71,11 @@ async def test_2d_arrays(dut: Any):
         for j in range(3):
             assert dut.out_2d_vect_unpacked_unpacked[i][j].value == (i + j) % 2
     
-    # Test 2D array with custom types
-    for i in range(3):
-        dut.in_arr_packed[i].value = i + 1
+    # Test 2D array with custom types (packed arrays can't be indexed)
+    test_packed_array_val = 0b010_001_000  # 3 values of 3 bits each = 9 bits total
+    dut.in_arr_packed.value = test_packed_array_val
     await Timer(1, "ns")
-    for i in range(3):
-        assert dut.out_arr_packed[i].value == i + 1
+    assert dut.out_arr_packed.value == test_packed_array_val
     
     # Test 2D custom type array
     test_val = 0b101_110_001  # 3x3 bits for test_2d_array_t
@@ -81,7 +85,7 @@ async def test_2d_arrays(dut: Any):
 
 
 @cocotb.test()
-async def test_3d_arrays(dut: Any):
+async def test_3d_arrays(dut: DUT):
     """Test three-dimensional arrays."""
     # Test 3D fully packed vector
     test_val = random.randint(0, (1 << 27) - 1)  # 3x3x3 = 27 bits
@@ -99,13 +103,11 @@ async def test_3d_arrays(dut: Any):
         pass  # Verification handled by passthrough nature
     
     # Test 3D custom type arrays with packed packed dimensions
-    for i in range(3):
-        for j in range(3):
-            dut.in_arr_packed_packed[i][j].value = (i + j + 1) % 8
+    # Note: Packed arrays cannot be indexed in cocotb, so we test the whole array value
+    test_packed_value = 0x123456  # Use a test value that fits the packed array
+    dut.in_arr_packed_packed.value = test_packed_value
     await Timer(1, "ns")
-    for i in range(3):
-        for j in range(3):
-            assert dut.out_arr_packed_packed[i][j].value == (i + j + 1) % 8
+    assert dut.out_arr_packed_packed.value == test_packed_value
     
     # Test 3D custom type
     test_val = random.randint(0, (1 << 27) - 1)  # Full 3D array
@@ -115,7 +117,7 @@ async def test_3d_arrays(dut: Any):
 
 
 @cocotb.test()
-async def test_random_combinations(dut: Any):
+async def test_random_combinations(dut: DUT):
     """Test random value combinations across different array types."""
     # Test 1D arrays
     val_1d = random.randint(0, 7)  # 3-bit values
@@ -139,7 +141,7 @@ async def test_random_combinations(dut: Any):
 
 
 @cocotb.test()
-async def test_boundary_values(dut: Any):
+async def test_boundary_values(dut: DUT):
     """Test boundary values for different array sizes."""
     # Test zero
     dut.in_vect_packed.value = 0
@@ -160,7 +162,7 @@ async def test_boundary_values(dut: Any):
 
 
 @cocotb.test()
-async def test_array_indexing(dut: Any):
+async def test_array_indexing(dut: DUT):
     """Test that array indexing works correctly for unpacked arrays."""
     # Test unpacked 1D array
     test_values = [1, 0, 1]
@@ -189,19 +191,16 @@ async def test_array_indexing(dut: Any):
 
 
 @cocotb.test()
-async def test_custom_types(dut: Any):
+async def test_custom_types(dut: DUT):
     """Test custom typedef arrays."""
     # Test packed custom type arrays
-    for i in range(3):
-        test_val = (i + 1) * 2
-        dut.in_arr_packed[i].value = test_val
+    # Note: Packed arrays cannot be indexed in cocotb, so we test the whole array value
+    test_packed_val = 0b101_010_001  # 9-bit value that fits the packed array (3 values × 3 bits)
+    dut.in_arr_packed.value = test_packed_val
     
     await Timer(1, "ns")
     
-    for i in range(3):
-        expected_val = (i + 1) * 2
-        actual_val = dut.out_arr_packed[i].value
-        assert actual_val == expected_val, f"arr_packed[{i}]: expected {expected_val}, got {actual_val}"
+    assert dut.out_arr_packed.value == test_packed_val, f"arr_packed: expected {test_packed_val}, got {dut.out_arr_packed.value}"
     
     # Test unpacked custom type arrays
     for i in range(3):

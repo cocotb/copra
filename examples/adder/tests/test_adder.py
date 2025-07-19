@@ -5,7 +5,7 @@ import os
 import random
 import sys
 from pathlib import Path
-
+from typing import TYPE_CHECKING, Any
 import cocotb
 from cocotb.triggers import Timer
 from cocotb_tools.runner import get_runner
@@ -13,9 +13,13 @@ from cocotb_tools.runner import get_runner
 if cocotb.simulator.is_running():
     from adder_model import adder_model
 
+if TYPE_CHECKING:
+    from copra_stubs.dut import DUT
+else:
+    DUT = Any
 
 @cocotb.test()
-async def adder_basic_test(dut):
+async def adder_basic_test(dut: DUT):
     """Test for 5 + 10"""
 
     A = 5
@@ -32,7 +36,7 @@ async def adder_basic_test(dut):
 
 
 @cocotb.test()
-async def adder_randomised_test(dut):
+async def adder_randomised_test(dut: DUT):
     """Test for adding 2 random numbers multiple times"""
 
     for _ in range(10):

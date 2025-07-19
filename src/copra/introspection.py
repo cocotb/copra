@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple, Any
 from cocotb.handle import (
     SimHandleBase, ArrayObject, HierarchyArrayObject,
     LogicObject, LogicArrayObject, IntegerObject, RealObject, 
@@ -9,6 +9,10 @@ from cocotb.handle import (
 from cocotb import simulator
 from .config import get_config
 
+def sanitize_name(name: str) -> str:
+    """Convert HDL name to Python class name - shared with generation module."""
+    return ''.join(word.capitalize() for word in name.split('[')[0].split('_'))
+
 class TypeIntrospector:
     """Configurable type introspection for HDL objects."""
     
@@ -16,6 +20,8 @@ class TypeIntrospector:
         self.config = get_config()
         self._type_mappings = self._build_type_mappings()
         self._value_mappings = self._build_value_mappings()
+        self._simulator_type_handlers = self._build_simulator_type_handlers()
+        self._base_class_mappings = self._build_base_class_mappings()
     
     def _build_type_mappings(self) -> Dict[int, type]:
         """Build simulator type to cocotb handle class mappings."""
@@ -50,67 +56,121 @@ class TypeIntrospector:
             types.value_types['enum']: types.base_classes['enum'],
         }
     
-    def get_nested_array_child_type(self, obj: SimHandleBase) -> Optional[str]:
-        """Get the child type for nested array structures."""
+    def _build_simulator_type_handlers(self) -> Dict[int, str]:
+        """Build mapping from simulator types to their handler methods."""
+        handlers = {}
+        type_mappings = [
+            ('NETARRAY', 'NETARRAY'),
+            ('LOGIC_ARRAY', 'LOGIC_ARRAY'), 
+            ('LOGIC', 'LOGIC'),
+            ('INTEGER', 'INTEGER'),
+            ('REAL', 'REAL'),
+            ('STRING', 'STRING'),
+            ('ENUM', 'ENUM'),
+            ('GENARRAY', 'GENARRAY'),
+        ]
+        
+        for attr_name, handler_name in type_mappings:
+            sim_type = getattr(simulator, attr_name, None)
+            if sim_type is not None:
+                handlers[sim_type] = handler_name
+        
+        return handlers
+    
+    def _build_base_class_mappings(self) -> Dict[type, str]:
+        """Build mapping from base classes to their string representations."""
+        return {
+            HierarchyObject: "cocotb.handle.HierarchyObject",
+            ArrayObject: f"cocotb.handle.ArrayObject[{self.config.types.fallback_types['value']}, {self.config.types.fallback_types['handle']}]",
+            LogicArrayObject: "cocotb.handle.LogicArrayObject",
+            LogicObject: "cocotb.handle.LogicObject",
+            IntegerObject: "cocotb.handle.IntegerObject",
+            RealObject: "cocotb.handle.RealObject",
+            EnumObject: "cocotb.handle.EnumObject",
+            StringObject: "cocotb.handle.StringObject",
+            HierarchyArrayObject: f"cocotb.handle.HierarchyArrayObject[cocotb.handle.SimHandleBase]",
+        }
+    
+    def _get_object_info(self, obj: SimHandleBase) -> Tuple[Optional[Any], int, str, str]:
+        """Extract basic object information needed for type detection."""
+        handle = getattr(obj, "_handle", None)
+        if not handle:
+            return None, -1, "", ""
+            
+        sim_type = handle.get_type()
+        
+        try:
+            type_string = handle.get_type_string().lower()
+            obj_name = getattr(obj, "_name", "unknown")
+        except (AttributeError, TypeError):
+            type_string = ""
+            obj_name = getattr(obj, "_name", "unknown")
+        
+        return handle, sim_type, type_string, obj_name
+    
+    def _get_array_child_info(self, obj: SimHandleBase) -> Tuple[Optional[Any], Optional[int]]:
+        """Get information about array child elements."""
         try:
             try:
                 range_obj = obj.range  # type: ignore
                 first_idx = range_obj.left  # type: ignore
             except (RuntimeError, AttributeError):
-                return None
+                return None, None
                 
             if not hasattr(obj, "__getitem__"):
-                return None
+                return None, None
                 
             child_obj = obj[first_idx]  # type: ignore
             child_handle = getattr(child_obj, "_handle", None)  # type: ignore
             if child_handle:
                 child_sim_type = child_handle.get_type()
+                return child_obj, child_sim_type
                 
-                if child_sim_type == simulator.NETARRAY:
-                    return self.get_nested_array_child_type(child_obj)  # type: ignore
-                elif child_sim_type == simulator.LOGIC_ARRAY:
-                    return self.config.types.value_types['logic_array']
-                elif child_sim_type == simulator.LOGIC:
-                    return self.config.types.value_types['logic']
-                elif child_sim_type == simulator.INTEGER:
-                    return self.config.types.value_types['integer']
-                elif child_sim_type == simulator.REAL:
-                    return self.config.types.value_types['real']
-                elif child_sim_type == simulator.STRING:
-                    return self.config.types.value_types['string']
-                elif child_sim_type == simulator.ENUM:
-                    return self.config.types.value_types['enum']
-                    
         except (IndexError, AttributeError, TypeError):
             pass
+        return None, None
+    
+    def _get_child_type_by_simulator_type(self, child_sim_type: int) -> Optional[str]:
+        """Get child type based on simulator type using intelligent lookup."""
+        type_handler = self._simulator_type_handlers.get(child_sim_type)
+        if type_handler == 'NETARRAY':
+            return None  # Indicates recursive processing needed
+        elif type_handler == 'LOGIC_ARRAY':
+            return self.config.types.value_types['logic_array']
+        elif type_handler == 'LOGIC':
+            return self.config.types.value_types['logic']
+        elif type_handler == 'INTEGER':
+            return self.config.types.value_types['integer']
+        elif type_handler == 'REAL':
+            return self.config.types.value_types['real']
+        elif type_handler == 'STRING':
+            return self.config.types.value_types['string']
+        elif type_handler == 'ENUM':
+            return self.config.types.value_types['enum']
         return None
+    
+    def get_nested_array_child_type(self, obj: SimHandleBase) -> Optional[str]:
+        """Get the child type for nested array structures."""
+        child_obj, child_sim_type = self._get_array_child_info(obj)
+        if child_obj is None or child_sim_type is None:
+            return None
+            
+        child_type = self._get_child_type_by_simulator_type(child_sim_type)
+        if child_type is None and self._simulator_type_handlers.get(child_sim_type) == 'NETARRAY':
+            return self.get_nested_array_child_type(child_obj)  # type: ignore
+        
+        return child_type
     
     def get_array_depth(self, obj: SimHandleBase) -> int:
         """Get the depth of nested arrays."""
-        try:
-            try:
-                range_obj = obj.range  # type: ignore
-                first_idx = range_obj.left  # type: ignore
-            except (RuntimeError, AttributeError):
-                return 0
-                
-            if not hasattr(obj, "__getitem__"):
-                return 0
-                
-            child_obj = obj[first_idx]  # type: ignore
-            child_handle = getattr(child_obj, "_handle", None)  # type: ignore
-            if child_handle:
-                child_sim_type = child_handle.get_type()
-                
-                if child_sim_type == simulator.NETARRAY:
-                    return 1 + self.get_array_depth(child_obj)  # type: ignore
-                else:
-                    return 1
-                    
-        except (IndexError, AttributeError, TypeError):
-            pass
-        return 0
+        child_obj, child_sim_type = self._get_array_child_info(obj)
+        if child_obj is None or child_sim_type is None:
+            return 0
+            
+        if self._simulator_type_handlers.get(child_sim_type) == 'NETARRAY':
+            return 1 + self.get_array_depth(child_obj)  # type: ignore
+        else:
+            return 1
     
     def get_array_element_value_type(self, obj: SimHandleBase) -> str:
         """Get the value type for array elements (ElemValueT)."""
@@ -146,77 +206,203 @@ class TypeIntrospector:
             return self._value_mappings.get(base_type, self.config.types.fallback_types['handle'])
         return self.config.types.fallback_types['handle']
     
+    def _process_netarray_type(self, obj: SimHandleBase) -> str:
+        """Process NETARRAY type objects."""
+        elem_value_type = self.get_array_element_value_type(obj)
+        child_object_type = self.get_array_element_handle_type(obj)
+        
+        if elem_value_type and child_object_type:
+            return f"cocotb.handle.ArrayObject[{elem_value_type}, {child_object_type}]"
+        elif elem_value_type:
+            return f"cocotb.handle.ArrayObject[{elem_value_type}, {self.config.types.fallback_types['handle']}]"
+        else:
+            return f"cocotb.handle.ArrayObject[{self.config.types.fallback_types['value']}, {self.config.types.fallback_types['handle']}]"
+    
+    def _matches_patterns(self, text: str, patterns: list[str]) -> bool:
+        """Check if text matches any of the given patterns."""
+        return any(pattern in text for pattern in patterns)
+    
+    def _process_logic_array_type(self, obj: SimHandleBase, type_string: str) -> str:
+        """Process LOGIC_ARRAY type objects."""
+        try:
+            length = getattr(obj, "_len", None)
+            if length is None and hasattr(obj, "__len__"):
+                try:
+                    length = len(obj)  # type: ignore
+                except (TypeError, AttributeError):
+                    length = None
+            
+            if self._matches_patterns(type_string, self.config.types.patterns.logic_array_patterns):
+                return "cocotb.handle.LogicArrayObject"
+            elif length == 1:
+                return "cocotb.handle.LogicObject"
+            else:
+                return "cocotb.handle.LogicArrayObject"
+        except (AttributeError, TypeError):
+            return "cocotb.handle.LogicArrayObject"
+    
+    def _process_integer_type(self, type_string: str) -> str:
+        """Process INTEGER type objects."""
+        try:
+            if self._matches_patterns(type_string, self.config.types.patterns.integer_patterns):
+                return "cocotb.handle.IntegerObject"
+            else:
+                return "cocotb.handle.IntegerObject"
+        except (AttributeError, TypeError):
+            return "cocotb.handle.IntegerObject"
+    
+    def _process_genarray_type(self, obj: SimHandleBase) -> str:
+        """Process GENARRAY type objects."""
+        try:
+            try:
+                range_obj = obj.range  # type: ignore
+                first_idx = range_obj.left  # type: ignore
+            except (RuntimeError, AttributeError):
+                first_idx = 0
+                
+            if not hasattr(obj, "__getitem__"):
+                return f"cocotb.handle.HierarchyArrayObject[{self.config.types.fallback_types['value']}]"
+                
+            child_obj = obj[first_idx]  # type: ignore
+            
+            parent_name = getattr(obj, "_name", "")
+            
+            for prefix in self.config.discovery.generate_prefixes:
+                if parent_name and parent_name.startswith(prefix):
+                    class_name = sanitize_name(parent_name)
+                    return f"cocotb.handle.HierarchyArrayObject[{class_name}]"
+            
+            parent_path = getattr(obj, "_path", "")
+            if parent_path:
+                path_parts = parent_path.split('.')
+                for part in reversed(path_parts):
+                    for prefix in self.config.discovery.generate_prefixes:
+                        if part.startswith(prefix):
+                            class_name = sanitize_name(part)
+                            return f"cocotb.handle.HierarchyArrayObject[{class_name}]"
+            
+            return f"cocotb.handle.HierarchyArrayObject[cocotb.handle.SimHandleBase]"
+            
+        except (IndexError, AttributeError, TypeError):
+            return f"cocotb.handle.HierarchyArrayObject[cocotb.handle.SimHandleBase]"
+    
+    def _map_base_class_to_string(self, base_class: type) -> str:
+        """Map base class type to its string representation using intelligent lookup."""
+        return self._base_class_mappings.get(base_class, self.config.types.fallback_types['base'])
+    
+    def _process_simulator_type(self, sim_type: int, obj: SimHandleBase, type_string: str) -> str:
+        """Process different simulator types using intelligent dispatch."""
+        type_handler = self._simulator_type_handlers.get(sim_type)
+        
+        if type_handler == 'NETARRAY':
+            return self._process_netarray_type(obj)
+        elif type_handler == 'LOGIC_ARRAY':
+            return self._process_logic_array_type(obj, type_string)
+        elif type_handler == 'LOGIC':
+            return "cocotb.handle.LogicObject"
+        elif type_handler == 'INTEGER':
+            return self._process_integer_type(type_string)
+        elif type_handler == 'REAL':
+            return "cocotb.handle.RealObject"
+        elif type_handler == 'ENUM':
+            return "cocotb.handle.EnumObject"
+        elif type_handler == 'STRING':
+            return "cocotb.handle.StringObject"
+        elif type_handler == 'GENARRAY':
+            return self._process_genarray_type(obj)
+        
+        base_class = self._type_mappings.get(sim_type)
+        if base_class:
+            return self._map_base_class_to_string(base_class)
+        
+        return self.config.types.fallback_types['base']
+    
     def extract_full_type_info(self, obj: SimHandleBase) -> str:
         """Extract comprehensive type information with proper generic parameters."""
-        handle = getattr(obj, "_handle", None)
-        if not handle:
+        handle, sim_type, type_string, obj_name = self._get_object_info(obj)
+        if handle is None:
             return self.config.types.fallback_types['base']
-            
-        sim_type = handle.get_type()
         
         if sim_type not in self._type_mappings:
             return f"{self.config.types.fallback_types['base']}"
         
-        base_class = self._type_mappings[sim_type]
+        hdl_specific_type = self._detect_hdl_specific_type(obj, sim_type, type_string, obj_name)
+        if hdl_specific_type:
+            return hdl_specific_type
         
-        if sim_type == simulator.NETARRAY:
-            elem_value_type = self.get_array_element_value_type(obj)
-            child_object_type = self.get_array_element_handle_type(obj)
+        return self._process_simulator_type(sim_type, obj, type_string)
+    
+    def _detect_hdl_specific_type(self, obj: SimHandleBase, sim_type: int, type_string: str, obj_name: str) -> Optional[str]:
+        """HDL-specific type detection based on patterns and naming conventions."""
+        
+        if self._is_integer_like(obj_name, type_string, obj):
+            return "cocotb.handle.IntegerObject"
+        
+        if self._is_real_like(obj_name, type_string):
+            return "cocotb.handle.RealObject"
+        
+        if self._is_time_like(obj_name, type_string):
+            return "cocotb.handle.IntegerObject"  # Time is often represented as integer
+        
+        if self._simulator_type_handlers.get(sim_type) == 'LOGIC_ARRAY':
+            if self._matches_patterns(type_string, self.config.types.patterns.logic_array_patterns):
+                return "cocotb.handle.LogicArrayObject"
+        
+        return None
+    
+    def _is_integer_like(self, obj_name: str, type_string: str, obj: SimHandleBase) -> bool:
+        """Detect if this should be treated as an integer using configurable patterns."""
+        if not self.config.discovery.detect_integer_patterns:
+            return False
             
-            if elem_value_type and child_object_type:
-                return f"cocotb.handle.ArrayObject[{elem_value_type}, {child_object_type}]"
-            elif elem_value_type:
-                return f"cocotb.handle.ArrayObject[{elem_value_type}, {self.config.types.fallback_types['handle']}]"
-            else:
-                return f"cocotb.handle.ArrayObject[{self.config.types.fallback_types['value']}, {self.config.types.fallback_types['handle']}]"
+        name_lower = obj_name.lower()
         
-        elif sim_type == simulator.GENARRAY:
-            try:
-                try:
-                    range_obj = obj.range  # type: ignore
-                    first_idx = range_obj.left  # type: ignore
-                except (RuntimeError, AttributeError):
-                    first_idx = 0
-                    
-                if not hasattr(obj, "__getitem__"):
-                    return f"cocotb.handle.HierarchyArrayObject[{self.config.types.fallback_types['value']}]"
-                    
-                child_obj = obj[first_idx]  # type: ignore
-                
-                parent_name = getattr(obj, "_name", "")
-                
-                for prefix in self.config.discovery.generate_prefixes:
-                    if parent_name and parent_name.startswith(prefix):
-                        base_name = parent_name[len(prefix):]
-                        parts = base_name.split('_')
-                        class_name = prefix.capitalize() + ''.join(part.capitalize() for part in parts)
-                        return f"cocotb.handle.HierarchyArrayObject[{class_name}]"
-                
-                parent_path = getattr(obj, "_path", "")
-                if parent_path:
-                    path_parts = parent_path.split('.')
-                    for part in reversed(path_parts):
-                        for prefix in self.config.discovery.generate_prefixes:
-                            if part.startswith(prefix):
-                                base_name = part[len(prefix):]
-                                parts = base_name.split('_')
-                                class_name = prefix.capitalize() + ''.join(part.capitalize() for part in parts)
-                                return f"cocotb.handle.HierarchyArrayObject[{class_name}]"
-                
-                if hasattr(child_obj, "_name"):  # type: ignore
-                    child_name = getattr(child_obj, "_name")  # type: ignore
-                    if child_name and not child_name.isdigit():
-                        sanitized_name = ''.join(word.capitalize() for word in child_name.split('_'))
-                        return f"cocotb.handle.HierarchyArrayObject[{sanitized_name}]"
-                    
-                child_class_name = type(child_obj).__name__  # type: ignore
-                return f"cocotb.handle.HierarchyArrayObject[{child_class_name}]"
-                
-            except (IndexError, AttributeError, TypeError):
-                pass
-            return f"cocotb.handle.HierarchyArrayObject[{self.config.types.fallback_types['value']}]"
+        if self._matches_patterns(name_lower, self.config.types.patterns.integer_name_patterns):
+            return True
         
-        return f"cocotb.handle.{base_class.__name__}"
+        if self._matches_patterns(type_string, self.config.types.patterns.integer_patterns):
+            return True
+        
+        try:
+            if hasattr(obj, '_len'):
+                length = getattr(obj, '_len', 0)
+                small_integer_patterns = ['id', 'count', 'index', 'level']
+                if 1 <= length <= 8 and self._matches_patterns(name_lower, small_integer_patterns):
+                    return True
+        except:
+            pass
+        
+        return False
+    
+    def _is_real_like(self, obj_name: str, type_string: str) -> bool:
+        """Detect if this should be treated as a real/float using configurable patterns."""
+        if not self.config.discovery.detect_real_patterns:
+            return False
+            
+        name_lower = obj_name.lower()
+        
+        if self._matches_patterns(name_lower, self.config.types.patterns.real_name_patterns):
+            return True
+            
+        if self._matches_patterns(type_string, self.config.types.patterns.real_patterns):
+            return True
+            
+        return False
+    
+    def _is_time_like(self, obj_name: str, type_string: str) -> bool:
+        """Detect if this should be treated as a time value using configurable patterns."""
+        if not self.config.discovery.detect_time_patterns:
+            return False
+            
+        name_lower = obj_name.lower()
+        
+        if self._matches_patterns(name_lower, self.config.types.patterns.time_name_patterns):
+            return True
+            
+        if self._matches_patterns(type_string, self.config.types.patterns.time_patterns):
+            return True
+            
+        return False
     
     def extract_hierarchy_element_type(self, obj: SimHandleBase) -> Optional[str]:
         """Extract the element type for HierarchyArrayObject generic parameter."""
@@ -233,18 +419,18 @@ class TypeIntrospector:
             child_obj = obj[first_idx]  # type: ignore
             if hasattr(child_obj, "_name"):  # type: ignore
                 child_name = getattr(child_obj, "_name")  # type: ignore
-                sanitized_name = ''.join(word.capitalize() for word in child_name.split('_'))
+                sanitized_name = sanitize_name(child_name)
                 return sanitized_name
         except (IndexError, AttributeError, TypeError):
             pass
         return None
 
-_introspector = TypeIntrospector()
-
 def extract_full_type_info(obj: SimHandleBase) -> str:
     """Extract comprehensive type information with proper generic parameters."""
-    return _introspector.extract_full_type_info(obj)
+    introspector = TypeIntrospector()
+    return introspector.extract_full_type_info(obj)
 
 def extract_hierarchy_element_type(obj: SimHandleBase) -> Optional[str]:
     """Extract the element type for HierarchyArrayObject generic parameter."""
-    return _introspector.extract_hierarchy_element_type(obj)
+    introspector = TypeIntrospector()
+    return introspector.extract_hierarchy_element_type(obj)

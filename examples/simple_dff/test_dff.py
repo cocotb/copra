@@ -4,7 +4,7 @@
 import os
 import random
 from pathlib import Path
-
+from typing import TYPE_CHECKING, Any
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
@@ -12,9 +12,13 @@ from cocotb_tools.runner import get_runner
 
 LANGUAGE = os.getenv("HDL_TOPLEVEL_LANG", "verilog").lower().strip()
 
+if TYPE_CHECKING:
+    from copra_stubs.dut import DUT
+else:
+    DUT = Any
 
 @cocotb.test()
-async def dff_simple_test(dut):
+async def dff_simple_test(dut: DUT):
     """Test that d propagates to q"""
 
     # Set initial input value to prevent it from floating

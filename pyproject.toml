@@ -45,9 +45,6 @@ dev = [
     "mypy>=1.10,<2",
 ]
 
-[project.scripts]
-copra = "copra.cli:main"
-cocotb-stubgen = "copra.cli:main"
 
 [tool.ruff]
 line-length = 100

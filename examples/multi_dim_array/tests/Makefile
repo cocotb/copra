@@ -15,9 +15,6 @@ endif
 SIM ?= icarus
 
 COCOTB_TOPLEVEL := multi_dim_array
-COCOTB_TEST_MODULES := copra.integration.autostub, test_multi_dim_array
-
-copra:
-	SIM=$(SIM) uv run copra generate .. --top multi_dim_array
+COCOTB_TEST_MODULES := copra.integration.autostub,test_multi_dim_array
 
 include $(shell cocotb-config --makefiles)/Makefile.sim 

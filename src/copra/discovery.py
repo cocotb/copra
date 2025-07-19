@@ -31,11 +31,11 @@ class HierarchyDict(Dict[str, Any]):
     def add_node(self, obj: SimHandleBase, path: str) -> None:
         """Add a node to the hierarchy, building the tree structure as we go."""
         width: int | None = None
-        if hasattr(obj, '__len__'):
-            try:
+        try:
+            if hasattr(obj, '__len__'):
                 width = len(obj)  # type: ignore
-            except (TypeError, AttributeError):
-                width = None
+        except (TypeError, AttributeError, RuntimeError, Exception):
+            width = None
         
         is_scope = self._determine_scope(obj)
         
@@ -51,7 +51,10 @@ class HierarchyDict(Dict[str, Any]):
     def _determine_scope(self, obj: SimHandleBase) -> bool:
         """Determine if an object represents a scope based on configuration."""
         try:
-            handle = getattr(obj, "_handle")
+            handle = getattr(obj, "_handle", None)
+            if handle is None:
+                return isinstance(obj, (HierarchyObject, HierarchyArrayObject))
+                
             sim_type = handle.get_type()
             scope_type_constants = {
                 getattr(simulator, scope_type) 
@@ -59,7 +62,7 @@ class HierarchyDict(Dict[str, Any]):
                 if hasattr(simulator, scope_type)
             }
             return sim_type in scope_type_constants
-        except Exception:
+        except (AttributeError, TypeError, RuntimeError):
             return isinstance(obj, (HierarchyObject, HierarchyArrayObject))
     
     def _build_tree_node(self, node: HDLNode) -> None:
@@ -138,20 +141,22 @@ class HierarchyDiscoverer:
     
     def _should_recurse(self, child: SimHandleBase) -> bool:
         """Determine if we should recurse into a child object."""
-        child_handle = getattr(child, "_handle", None)
-        if not child_handle:
+        try:
+            child_handle = getattr(child, "_handle", None)
+            if not child_handle:
+                return False
+            
+            child_sim_type = child_handle.get_type()
+            scope_type_constants = {
+                getattr(simulator, scope_type) 
+                for scope_type in self.config.discovery.scope_types
+                if hasattr(simulator, scope_type)
+            }
+            return child_sim_type in scope_type_constants
+        except (AttributeError, TypeError, RuntimeError):
             return False
-        
-        child_sim_type = child_handle.get_type()
-        scope_type_constants = {
-            getattr(simulator, scope_type) 
-            for scope_type in self.config.discovery.scope_types
-            if hasattr(simulator, scope_type)
-        }
-        return child_sim_type in scope_type_constants
-
-_discoverer = HierarchyDiscoverer()
 
 async def discover(dut: SimHandleBase) -> HierarchyDict:
     """Discover hierarchy iteratively while building, avoiding explore-then-rebuild pattern."""
-    return await _discoverer.discover(dut)
+    discoverer = HierarchyDiscoverer()
+    return await discoverer.discover(dut)

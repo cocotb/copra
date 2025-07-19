@@ -2,64 +2,47 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Dict, List, Optional, Set, Pattern
-import re
+from typing import Dict, List, Set
 
 @dataclass
-class HDLConfig:
-    """Configuration for HDL file discovery and parsing."""
-    verilog_extensions: Set[str] = field(default_factory=lambda: {'.sv', '.v'})
-    vhdl_extensions: Set[str] = field(default_factory=lambda: {'.vhd', '.vhdl'})
-    rtl_directory_names: List[str] = field(default_factory=lambda: ['rtl', 'hdl'])
+class TypePatterns:
+    """Configurable patterns for intelligent type detection through cocotb handles."""
+    logic_array_patterns: List[str] = field(default_factory=lambda: [
+        'unsigned', 'signed', 'std_logic_vector', 'bit_vector', 'logic_vector'
+    ])
+    integer_patterns: List[str] = field(default_factory=lambda: [
+        'integer', 'natural', 'positive'
+    ])
+    real_patterns: List[str] = field(default_factory=lambda: [
+        'real', 'float'
+    ])
+    time_patterns: List[str] = field(default_factory=lambda: [
+        'time'
+    ])
     
-    @property
-    def all_extensions(self) -> Set[str]:
-        return self.verilog_extensions | self.vhdl_extensions
+    integer_name_patterns: List[str] = field(default_factory=lambda: [
+        'count', 'counter', 'addr', 'address', 'size', 'length', 'width', 'depth',
+        'index', 'ptr', 'pointer', 'offset', 'id', 'tag', 'num_', 'level',
+        'threshold', 'limit', 'max_', 'min_', 'cycles', 'delay'
+    ])
+    real_name_patterns: List[str] = field(default_factory=lambda: [
+        'freq', 'frequency', 'voltage', 'current', 'power', 'temp', 'temperature', 
+        'ratio', 'gain', 'scale', 'factor', 'coeff', 'weight'
+    ])
+    time_name_patterns: List[str] = field(default_factory=lambda: [
+        'time', 'delay', 'period', 'duration', 'timeout', 'latency'
+    ])
     
-    def get_module_patterns(self) -> Dict[str, Pattern[str]]:
-        return {
-            'verilog': re.compile(r'^\s*module\s+(\w+)', re.MULTILINE),
-            'vhdl': re.compile(r'^\s*entity\s+(\w+)\s+is', re.MULTILINE | re.IGNORECASE)
-        }
-    
-    def is_verilog(self, file_path: Path) -> bool:
-        return file_path.suffix in self.verilog_extensions
-    
-    def is_vhdl(self, file_path: Path) -> bool:
-        return file_path.suffix in self.vhdl_extensions
-
-@dataclass 
-class SimulatorConfig:
-    """Configuration for simulator integration."""
-    preferred_simulators: List[str] = field(default_factory=lambda: ['verilator', 'icarus', 'questa'])
-    build_args: Dict[str, List[str]] = field(default_factory=lambda: {
-        'verilator': ['-Wno-fatal', '-Wno-WIDTHTRUNC', '-Wno-WIDTHEXPAND', '-Wno-CASEINCOMPLETE'],
-        'icarus': [],
-        'questa': []
-    })
-    env_vars: Dict[str, Dict[str, str]] = field(default_factory=lambda: {
-        'verilator': {'CXXFLAGS': '-std=c++14', 'EXTRA_CXXFLAGS': '-std=c++14'},
-        'icarus': {},
-        'questa': {}
-    })
-    language_support: Dict[str, List[str]] = field(default_factory=lambda: {
-        'verilator': ['verilog'],
-        'icarus': ['verilog'], 
-        'questa': ['verilog', 'vhdl'],
-        'ghdl': ['vhdl']
-    })
-    
-    def supports_language(self, simulator: str, language: str) -> bool:
-        """Check if a simulator supports a specific HDL language."""
-        return language in self.language_support.get(simulator, [])
+    value_object_patterns: List[str] = field(default_factory=lambda: [
+        'LogicObject', 'LogicArrayObject', 'IntegerObject', 
+        'RealObject', 'StringObject', 'EnumObject', 'ArrayObject'
+    ])
 
 @dataclass
 class TypeConfig:
-    """Configuration for type mappings and generation."""
+    """Configuration for type mappings and generation through cocotb APIs."""
     import_statements: List[str] = field(default_factory=lambda: [
         'from __future__ import annotations',
-        'from typing import Any',
         'import cocotb.handle',
         'import cocotb.types'
     ])
@@ -85,28 +68,46 @@ class TypeConfig:
         'enum': 'str'
     })
     
+    value_annotations: Dict[str, str] = field(default_factory=lambda: {
+        'LogicObject': 'cocotb.types.Logic',
+        'LogicArrayObject': 'cocotb.types.LogicArray', 
+        'IntegerObject': 'int',
+        'RealObject': 'float',
+        'StringObject': 'bytes',
+        'EnumObject': 'str'
+    })
+    
     fallback_types: Dict[str, str] = field(default_factory=lambda: {
         'value': 'Any',
         'handle': 'cocotb.handle.ValueObjectBase[Any, Any]',
         'base': 'cocotb.handle.SimHandleBase'
     })
+    
+    patterns: TypePatterns = field(default_factory=TypePatterns)
 
 @dataclass
 class DiscoveryConfig:
-    """Configuration for hierarchy discovery."""
-    max_depth: int = 50
-    scope_types: Set[str] = field(default_factory=lambda: {'MODULE', 'STRUCTURE', 'GENARRAY', 'PACKAGE'})
-    array_types: Set[str] = field(default_factory=lambda: {'NETARRAY'})
-    generate_prefixes: List[str] = field(default_factory=lambda: ['gen_'])
+    """Configuration for hierarchy discovery through cocotb handles."""
+    max_depth: int = 100
+    scope_types: Set[str] = field(default_factory=lambda: {
+        'MODULE', 'STRUCTURE', 'GENARRAY', 'PACKAGE', 
+        'BLOCK', 'FUNCTION', 'TASK', 'PROCESS', 'GENERATE'
+    })
+    array_types: Set[str] = field(default_factory=lambda: {'NETARRAY', 'LOGIC_ARRAY'})
+    generate_prefixes: List[str] = field(default_factory=lambda: ['gen_', 'generate_', 'for_', 'if_'])
+    
+    enable_detailed_typing: bool = True
+    detect_integer_patterns: bool = True
+    detect_real_patterns: bool = True
+    detect_time_patterns: bool = True
 
 @dataclass
 class OutputConfig:
-    """Configuration for output generation."""
+    """Configuration for stub file output."""
     default_stub_dir: str = 'copra_stubs'
     stub_filename: str = 'dut.pyi'
     root_class_name: str = 'DUT'
     env_var_stub_dir: str = 'COPRA_STUB_DIR'
-    temp_prefix: str = 'copra_'
     header_lines: List[str] = field(default_factory=lambda: [
         'This file was automatically generated by copra',
         'It provides type stubs for your HDL design for use with cocotb'
@@ -114,15 +115,14 @@ class OutputConfig:
 
 @dataclass
 class CopraConfig:
-    """Main configuration container for the entire copra system."""
-    hdl: HDLConfig = field(default_factory=HDLConfig)
-    simulator: SimulatorConfig = field(default_factory=SimulatorConfig)
+    """Main configuration for copra - type stub generation through cocotb APIs only."""
     types: TypeConfig = field(default_factory=TypeConfig)
     discovery: DiscoveryConfig = field(default_factory=DiscoveryConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
     
     @classmethod
     def from_env(cls) -> 'CopraConfig':
+        """Load configuration from environment variables."""
         config = cls()
         
         if stub_dir := os.getenv('COPRA_STUB_DIR'):
@@ -133,38 +133,8 @@ class CopraConfig:
                 config.discovery.max_depth = int(max_depth)
             except ValueError:
                 pass
-        
-        if temp_prefix := os.getenv('COPRA_TEMP_PREFIX'):
-            config.output.temp_prefix = temp_prefix
-            
+                
         return config
-    
-    def get_simulator_runner(self, simulator_name: Optional[str] = None):
-        """Get a simulator runner, preferring the specified one or falling back to available."""
-        try:
-            from cocotb_tools.runner import get_runner
-        except ImportError:
-            raise ImportError("cocotb_tools is required for simulator integration")
-        
-        # Check simulator_name first, then SIM environment variable, then fallback to preferred
-        sim_to_use = simulator_name or os.getenv('SIM')
-        
-        if sim_to_use:
-            try:
-                return get_runner(sim_to_use)
-            except Exception as e:
-                if simulator_name:
-                    # If explicitly specified, fail fast
-                    raise RuntimeError(f"Failed to initialize specified simulator '{sim_to_use}': {e}")
-                # If from environment, continue to fallback
-        
-        for sim in self.simulator.preferred_simulators:
-            try:
-                return get_runner(sim)
-            except Exception:
-                continue
-        
-        raise RuntimeError(f"No supported simulators available from: {self.simulator.preferred_simulators}")
 
 def get_config() -> CopraConfig:
     """Get the global configuration instance."""

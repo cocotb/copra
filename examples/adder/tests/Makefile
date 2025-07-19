@@ -22,9 +22,6 @@ else
 endif
 
 COCOTB_TOPLEVEL     := adder
-COCOTB_TEST_MODULES := copra.integration.autostub, test_adder
-
-copra:
-	SIM=$(SIM) uv run copra generate .. --top adder
+COCOTB_TEST_MODULES := copra.integration.autostub,test_adder
 
 include $(shell cocotb-config --makefiles)/Makefile.sim

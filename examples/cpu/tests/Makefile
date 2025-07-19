@@ -12,7 +12,6 @@ ifeq ($(TOPLEVEL_LANG),verilog)
     VERILOG_SOURCES += $(PWD)/../rtl/pipeline_stages.sv
     VERILOG_SOURCES += $(PWD)/../rtl/support_modules.sv
     VERILOG_SOURCES += $(PWD)/../rtl/clock_gen.sv
-    # Compile options for SystemVerilog features
     ifeq ($(SIM),icarus)
         COMPILE_ARGS += -g2012
     endif
@@ -25,9 +24,6 @@ COCOTB_TEST_MODULES := copra.integration.autostub,test_cpu
 
 # Use uv to run with cocotb 2.0
 PYTHON ?= uv run python
-
-copra:
-	SIM=$(SIM) uv run copra generate .. --top cpu
 
 export COPRA_STUB_DIR=$(PWD)/../copra_stubs
 include $(shell uv run cocotb-config --makefiles)/Makefile.sim 

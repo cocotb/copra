@@ -58,10 +58,7 @@ else
 endif
 
 COCOTB_TOPLEVEL     := matrix_multiplier
-COCOTB_TEST_MODULES := copra.integration.autostub, matrix_multiplier_tests
-
-copra:
-	SIM=$(SIM) uv run copra generate .. --top matrix_multiplier
+COCOTB_TEST_MODULES := copra.integration.autostub,matrix_multiplier_tests
 
 ifeq ($(SIM),ghdl)
 
