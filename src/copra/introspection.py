@@ -124,7 +124,7 @@ class TypeIntrospector:
             child_handle = getattr(child_obj, "_handle", None)  # type: ignore
             if child_handle:
                 child_sim_type = child_handle.get_type()
-                return child_obj, child_sim_type
+                return child_obj, child_sim_type    # type: ignore
                 
         except (IndexError, AttributeError, TypeError):
             pass
@@ -304,6 +304,7 @@ class TypeIntrospector:
             return self._process_integer_type(type_string)
         elif type_handler == 'REAL':
             return "cocotb.handle.RealObject"
+            
         elif type_handler == 'ENUM':
             return "cocotb.handle.EnumObject"
         elif type_handler == 'STRING':
@@ -334,9 +335,6 @@ class TypeIntrospector:
     
     def _detect_hdl_specific_type(self, obj: SimHandleBase, sim_type: int, type_string: str, obj_name: str) -> Optional[str]:
         """HDL-specific type detection based on patterns and naming conventions."""
-        
-        if self._is_integer_like(obj_name, type_string, obj):
-            return "cocotb.handle.IntegerObject"
         
         if self._is_real_like(obj_name, type_string):
             return "cocotb.handle.RealObject"
