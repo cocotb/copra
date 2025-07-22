@@ -13,6 +13,19 @@ module adder #(
 
   assign X = A + B;
 
+  generate
+    for (genvar i = 0; i < DATA_WIDTH; i++) begin : gen_debug_regs
+      logic [DATA_WIDTH-1:0] debug_a_local;
+      logic [DATA_WIDTH-1:0] debug_b_local;
+      logic debug_valid;
+      always_ff @(posedge 1'b1) begin
+        debug_a_local <= A;
+        debug_b_local <= B;
+        debug_valid <= 1'b1;
+      end
+    end
+  endgenerate
+
   // Dump waves
   initial begin
     $dumpfile("dump.vcd");
