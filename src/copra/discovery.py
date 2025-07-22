@@ -32,7 +32,10 @@ class HierarchyDict(Dict[str, Any]):
         """Add a node to the hierarchy, building the tree structure as we go."""
         width: int | None = None
         try:
-            if hasattr(obj, '__len__'):
+            from cocotb.handle import LogicObject, IntegerObject, EnumObject, RealObject
+            if isinstance(obj, (LogicObject, IntegerObject, EnumObject, RealObject)):
+                width = None
+            elif hasattr(obj, '__len__'):
                 width = len(obj)  # type: ignore
         except (TypeError, AttributeError, RuntimeError, Exception):
             width = None

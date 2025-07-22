@@ -57,10 +57,10 @@ async def test_2d_arrays(dut: DUT):
     
     # Test 2D packed-unpacked vector
     for i in range(3):
-        dut.in_2d_vect_packed_unpacked[i].value = (i + 1) * 0b101
+        dut.in_2d_vect_packed_unpacked[i].value = (i + 1) % 8  # Ensure values fit in 3 bits (0-7)
     await Timer(1, "ns")
     for i in range(3):
-        assert dut.out_2d_vect_packed_unpacked[i].value == (i + 1) * 0b101
+        assert dut.out_2d_vect_packed_unpacked[i].value == (i + 1) % 8
     
     # Test 2D unpacked-unpacked vector
     for i in range(3):
