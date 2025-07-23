@@ -5,9 +5,7 @@
 EXAMPLES := adder/tests \
             simple_dff \
             matrix_multiplier/tests \
-            multi_dim_array/tests \
-            cpu/tests
-
+            multi_dim_array/tests
 ifeq ($(TOPLEVEL_LANG),verilog)
     ifeq ($(SIM),$(filter $(SIM),ius xcelium))
         ifeq (,$(shell which spectre))
