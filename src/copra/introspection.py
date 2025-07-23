@@ -14,7 +14,7 @@ def sanitize_name(name: str) -> str:
     return ''.join(word.capitalize() for word in name.split('[')[0].split('_'))
 
 class TypeIntrospector:
-    """Configurable type introspection for HDL objects."""
+    """Clean type introspection using only cocotb's type hierarchy."""
     
     def __init__(self):
         self.config = get_config()
@@ -91,22 +91,14 @@ class TypeIntrospector:
             HierarchyArrayObject: f"cocotb.handle.HierarchyArrayObject[cocotb.handle.SimHandleBase]",
         }
     
-    def _get_object_info(self, obj: SimHandleBase) -> Tuple[Optional[Any], int, str, str]:
+    def _get_object_info(self, obj: SimHandleBase) -> Tuple[Optional[Any], int]:
         """Extract basic object information needed for type detection."""
         handle = getattr(obj, "_handle", None)
         if not handle:
-            return None, -1, "", ""
+            return None, -1
             
         sim_type = handle.get_type()
-        
-        try:
-            type_string = handle.get_type_string().lower()
-            obj_name = getattr(obj, "_name", "unknown")
-        except (AttributeError, TypeError):
-            type_string = ""
-            obj_name = getattr(obj, "_name", "unknown")
-        
-        return handle, sim_type, type_string, obj_name
+        return handle, sim_type
     
     def _get_array_child_info(self, obj: SimHandleBase) -> Tuple[Optional[Any], Optional[int]]:
         """Get information about array child elements."""
@@ -218,11 +210,7 @@ class TypeIntrospector:
         else:
             return f"cocotb.handle.ArrayObject[{self.config.types.fallback_types['value']}, {self.config.types.fallback_types['handle']}]"
     
-    def _matches_patterns(self, text: str, patterns: list[str]) -> bool:
-        """Check if text matches any of the given patterns."""
-        return any(pattern in text for pattern in patterns)
-    
-    def _process_logic_array_type(self, obj: SimHandleBase, type_string: str) -> str:
+    def _process_logic_array_type(self, obj: SimHandleBase) -> str:
         """Process LOGIC_ARRAY type objects."""
         try:
             length = getattr(obj, "_len", None)
@@ -232,24 +220,12 @@ class TypeIntrospector:
                 except (TypeError, AttributeError):
                     length = None
             
-            if self._matches_patterns(type_string, self.config.types.patterns.logic_array_patterns):
-                return "cocotb.handle.LogicArrayObject"
-            elif length == 1:
+            if length == 1:
                 return "cocotb.handle.LogicObject"
             else:
                 return "cocotb.handle.LogicArrayObject"
         except (AttributeError, TypeError):
             return "cocotb.handle.LogicArrayObject"
-    
-    def _process_integer_type(self, type_string: str) -> str:
-        """Process INTEGER type objects."""
-        try:
-            if self._matches_patterns(type_string, self.config.types.patterns.integer_patterns):
-                return "cocotb.handle.IntegerObject"
-            else:
-                return "cocotb.handle.IntegerObject"
-        except (AttributeError, TypeError):
-            return "cocotb.handle.IntegerObject"
     
     def _process_genarray_type(self, obj: SimHandleBase) -> str:
         """Process GENARRAY type objects."""
@@ -290,21 +266,20 @@ class TypeIntrospector:
         """Map base class type to its string representation using intelligent lookup."""
         return self._base_class_mappings.get(base_class, self.config.types.fallback_types['base'])
     
-    def _process_simulator_type(self, sim_type: int, obj: SimHandleBase, type_string: str) -> str:
+    def _process_simulator_type(self, sim_type: int, obj: SimHandleBase) -> str:
         """Process different simulator types using intelligent dispatch."""
         type_handler = self._simulator_type_handlers.get(sim_type)
         
         if type_handler == 'NETARRAY':
             return self._process_netarray_type(obj)
         elif type_handler == 'LOGIC_ARRAY':
-            return self._process_logic_array_type(obj, type_string)
+            return self._process_logic_array_type(obj)
         elif type_handler == 'LOGIC':
             return "cocotb.handle.LogicObject"
         elif type_handler == 'INTEGER':
-            return self._process_integer_type(type_string)
+            return "cocotb.handle.IntegerObject"
         elif type_handler == 'REAL':
             return "cocotb.handle.RealObject"
-            
         elif type_handler == 'ENUM':
             return "cocotb.handle.EnumObject"
         elif type_handler == 'STRING':
@@ -320,87 +295,14 @@ class TypeIntrospector:
     
     def extract_full_type_info(self, obj: SimHandleBase) -> str:
         """Extract comprehensive type information with proper generic parameters."""
-        handle, sim_type, type_string, obj_name = self._get_object_info(obj)
+        handle, sim_type = self._get_object_info(obj)
         if handle is None:
             return self.config.types.fallback_types['base']
         
         if sim_type not in self._type_mappings:
             return f"{self.config.types.fallback_types['base']}"
         
-        hdl_specific_type = self._detect_hdl_specific_type(obj, sim_type, type_string, obj_name)
-        if hdl_specific_type:
-            return hdl_specific_type
-        
-        return self._process_simulator_type(sim_type, obj, type_string)
-    
-    def _detect_hdl_specific_type(self, obj: SimHandleBase, sim_type: int, type_string: str, obj_name: str) -> Optional[str]:
-        """HDL-specific type detection based on patterns and naming conventions."""
-        
-        if self._is_real_like(obj_name, type_string):
-            return "cocotb.handle.RealObject"
-        
-        if self._is_time_like(obj_name, type_string):
-            return "cocotb.handle.IntegerObject"  # Time is often represented as integer
-        
-        if self._simulator_type_handlers.get(sim_type) == 'LOGIC_ARRAY':
-            if self._matches_patterns(type_string, self.config.types.patterns.logic_array_patterns):
-                return "cocotb.handle.LogicArrayObject"
-        
-        return None
-    
-    def _is_integer_like(self, obj_name: str, type_string: str, obj: SimHandleBase) -> bool:
-        """Detect if this should be treated as an integer using configurable patterns."""
-        if not self.config.discovery.detect_integer_patterns:
-            return False
-            
-        name_lower = obj_name.lower()
-        
-        if self._matches_patterns(name_lower, self.config.types.patterns.integer_name_patterns):
-            return True
-        
-        if self._matches_patterns(type_string, self.config.types.patterns.integer_patterns):
-            return True
-        
-        try:
-            if hasattr(obj, '_len'):
-                length = getattr(obj, '_len', 0)
-                small_integer_patterns = ['id', 'count', 'index', 'level']
-                if 1 <= length <= 8 and self._matches_patterns(name_lower, small_integer_patterns):
-                    return True
-        except:
-            pass
-        
-        return False
-    
-    def _is_real_like(self, obj_name: str, type_string: str) -> bool:
-        """Detect if this should be treated as a real/float using configurable patterns."""
-        if not self.config.discovery.detect_real_patterns:
-            return False
-            
-        name_lower = obj_name.lower()
-        
-        if self._matches_patterns(name_lower, self.config.types.patterns.real_name_patterns):
-            return True
-            
-        if self._matches_patterns(type_string, self.config.types.patterns.real_patterns):
-            return True
-            
-        return False
-    
-    def _is_time_like(self, obj_name: str, type_string: str) -> bool:
-        """Detect if this should be treated as a time value using configurable patterns."""
-        if not self.config.discovery.detect_time_patterns:
-            return False
-            
-        name_lower = obj_name.lower()
-        
-        if self._matches_patterns(name_lower, self.config.types.patterns.time_name_patterns):
-            return True
-            
-        if self._matches_patterns(type_string, self.config.types.patterns.time_patterns):
-            return True
-            
-        return False
+        return self._process_simulator_type(sim_type, obj)
     
     def extract_hierarchy_element_type(self, obj: SimHandleBase) -> Optional[str]:
         """Extract the element type for HierarchyArrayObject generic parameter."""

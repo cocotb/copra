@@ -6,33 +6,7 @@ from typing import Dict, List, Set
 
 @dataclass
 class TypePatterns:
-    """Configurable patterns for intelligent type detection through cocotb handles."""
-    logic_array_patterns: List[str] = field(default_factory=lambda: [
-        'unsigned', 'signed', 'std_logic_vector', 'bit_vector', 'logic_vector'
-    ])
-    integer_patterns: List[str] = field(default_factory=lambda: [
-        'integer', 'natural', 'positive'
-    ])
-    real_patterns: List[str] = field(default_factory=lambda: [
-        'real', 'float'
-    ])
-    time_patterns: List[str] = field(default_factory=lambda: [
-        'time'
-    ])
-    
-    integer_name_patterns: List[str] = field(default_factory=lambda: [
-        'count', 'counter', 'addr', 'address', 'size', 'length', 'width', 'depth',
-        'index', 'ptr', 'pointer', 'offset', 'id', 'tag', 'num_', 'level',
-        'threshold', 'limit', 'max_', 'min_', 'cycles', 'delay'
-    ])
-    real_name_patterns: List[str] = field(default_factory=lambda: [
-        'freq', 'frequency', 'voltage', 'current', 'power', 'temp', 'temperature', 
-        'ratio', 'gain', 'scale', 'factor', 'coeff', 'weight'
-    ])
-    time_name_patterns: List[str] = field(default_factory=lambda: [
-        'time', 'delay', 'period', 'duration', 'timeout', 'latency'
-    ])
-    
+    """Patterns for type detection through cocotb handles only."""
     value_object_patterns: List[str] = field(default_factory=lambda: [
         'LogicObject', 'LogicArrayObject', 'IntegerObject', 
         'RealObject', 'StringObject', 'EnumObject', 'ArrayObject'
@@ -95,11 +69,6 @@ class DiscoveryConfig:
     })
     array_types: Set[str] = field(default_factory=lambda: {'NETARRAY', 'LOGIC_ARRAY'})
     generate_prefixes: List[str] = field(default_factory=lambda: ['gen_', 'generate_', 'for_', 'if_'])
-    
-    enable_detailed_typing: bool = True
-    detect_integer_patterns: bool = True
-    detect_real_patterns: bool = True
-    detect_time_patterns: bool = True
 
 @dataclass
 class OutputConfig:
