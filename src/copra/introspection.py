@@ -212,20 +212,8 @@ class TypeIntrospector:
     
     def _process_logic_array_type(self, obj: SimHandleBase) -> str:
         """Process LOGIC_ARRAY type objects."""
-        try:
-            length = getattr(obj, "_len", None)
-            if length is None and hasattr(obj, "__len__"):
-                try:
-                    length = len(obj)  # type: ignore
-                except (TypeError, AttributeError):
-                    length = None
-            
-            if length == 1:
-                return "cocotb.handle.LogicObject"
-            else:
-                return "cocotb.handle.LogicArrayObject"
-        except (AttributeError, TypeError):
-            return "cocotb.handle.LogicArrayObject"
+        # LogicArrayObjects are LogicArrayObjects regardless of their length
+        return "cocotb.handle.LogicArrayObject"
     
     def _process_genarray_type(self, obj: SimHandleBase) -> str:
         """Process GENARRAY type objects."""
