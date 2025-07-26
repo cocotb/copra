@@ -23,6 +23,36 @@ else:
     DUT = Any
 
 
+def set_2d_unpacked_value(dut: DUT, signal_name: str, i: int, j: int, value: int) -> None:
+    """
+    Set a value in a 2D unpacked array, handling simulator differences.
+    
+    Verilator preserves 2D structure: signal[i][j]
+    Icarus flattens to 1D: signal[i*3 + j]  
+    """
+    signal = getattr(dut, signal_name)
+    try:
+        signal[i][j].value = value
+    except (TypeError, AttributeError):
+        linear_index = i * 3 + j
+        signal[linear_index].value = value
+
+
+def get_2d_unpacked_value(dut: DUT, signal_name: str, i: int, j: int) -> int:
+    """
+    Get a value from a 2D unpacked array, handling simulator differences.
+    
+    Verilator preserves 2D structure: signal[i][j]
+    Icarus flattens to 1D: signal[i*3 + j]
+    """
+    signal = getattr(dut, signal_name)
+    try:
+        return signal[i][j].value
+    except (TypeError, AttributeError):
+        linear_index = i * 3 + j
+        return signal[linear_index].value
+
+
 @cocotb.test()
 async def test_1d_arrays(dut: DUT):
     """Test single dimension arrays and vectors."""
@@ -65,11 +95,11 @@ async def test_2d_arrays(dut: DUT):
     # Test 2D unpacked-unpacked vector
     for i in range(3):
         for j in range(3):
-            dut.in_2d_vect_unpacked_unpacked[i][j].value = (i + j) % 2
+            set_2d_unpacked_value(dut, "in_2d_vect_unpacked_unpacked", i, j, (i + j) % 2)
     await Timer(1, "ns")
     for i in range(3):
         for j in range(3):
-            assert dut.out_2d_vect_unpacked_unpacked[i][j].value == (i + j) % 2
+            assert get_2d_unpacked_value(dut, "out_2d_vect_unpacked_unpacked", i, j) == (i + j) % 2
     
     # Test 2D array with custom types (packed arrays can't be indexed)
     test_packed_array_val = 0b010_001_000  # 3 values of 3 bits each = 9 bits total
@@ -179,14 +209,14 @@ async def test_array_indexing(dut: DUT):
     for i in range(3):
         for j in range(3):
             test_val = (i * 3 + j) % 2
-            dut.in_2d_vect_unpacked_unpacked[i][j].value = test_val
+            set_2d_unpacked_value(dut, "in_2d_vect_unpacked_unpacked", i, j, test_val)
     
     await Timer(1, "ns")
     
     for i in range(3):
         for j in range(3):
             expected_val = (i * 3 + j) % 2
-            actual_val = dut.out_2d_vect_unpacked_unpacked[i][j].value
+            actual_val = get_2d_unpacked_value(dut, "out_2d_vect_unpacked_unpacked", i, j)
             assert actual_val == expected_val, f"Index [{i}][{j}]: expected {expected_val}, got {actual_val}"
 
 
