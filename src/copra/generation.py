@@ -89,11 +89,6 @@ class StubGenerator:
                 
                 lines.append(f"{indent_str}{child_name}: {type_annotation}")
                 
-                # if not child_node.is_scope and self._should_add_value_property(child_node.py_type):
-                #     value_type = self._get_value_type_annotation(child_node.py_type)
-                #     if value_type:
-                #         lines.append(f"{indent_str}# {child_name}.value: {value_type}")
-
     def _should_add_value_property(self, py_type: str) -> bool:
         """Check if we should add a value type annotation for this handle type."""
         return any(handle_type in py_type for handle_type in self.config.types.patterns.value_object_patterns)
