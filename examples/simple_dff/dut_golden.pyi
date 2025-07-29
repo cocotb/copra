@@ -7,8 +7,5 @@ import cocotb.types
 
 class DUT(cocotb.handle.HierarchyObject):
     clk: cocotb.handle.LogicObject
-    # clk.value: cocotb.types.Logic
     d: cocotb.handle.LogicObject
-    # d.value: cocotb.types.Logic
     q: cocotb.handle.LogicObject
-    # q.value: cocotb.types.Logic

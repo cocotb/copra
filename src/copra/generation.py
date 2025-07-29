@@ -89,10 +89,10 @@ class StubGenerator:
                 
                 lines.append(f"{indent_str}{child_name}: {type_annotation}")
                 
-                if not child_node.is_scope and self._should_add_value_property(child_node.py_type):
-                    value_type = self._get_value_type_annotation(child_node.py_type)
-                    if value_type:
-                        lines.append(f"{indent_str}# {child_name}.value: {value_type}")
+                # if not child_node.is_scope and self._should_add_value_property(child_node.py_type):
+                #     value_type = self._get_value_type_annotation(child_node.py_type)
+                #     if value_type:
+                #         lines.append(f"{indent_str}# {child_name}.value: {value_type}")
 
     def _should_add_value_property(self, py_type: str) -> bool:
         """Check if we should add a value type annotation for this handle type."""
@@ -173,11 +173,6 @@ class StubGenerator:
                             else:
                                 lines.append(indent(f"{child_name}: {child_node.py_type}", "    "))
                                 
-                                if self._should_add_value_property(child_node.py_type):
-                                    value_type = self._get_value_type_annotation(child_node.py_type)
-                                    if value_type:
-                                        lines.append(indent(f"# {child_name}.value: {value_type}", "    "))
-                    
                     if not has_non_index_children:
                         lines.append("    pass")
                         
