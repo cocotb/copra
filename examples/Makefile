@@ -31,6 +31,9 @@ $(EXAMPLES):
 copra:
 	$(foreach TEST, $(EXAMPLES), $(MAKE) -C $(TEST) copra;)
 
+gen_stubs:
+	$(foreach TEST, $(EXAMPLES), $(MAKE) -C $(TEST) gen_stubs;)
+
 .PHONY: clean
 clean:
 	$(foreach TEST, $(EXAMPLES), $(MAKE) -C $(TEST) clean;)

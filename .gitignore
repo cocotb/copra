@@ -39,7 +39,7 @@ Thumbs.db
 
 
 # generated stubs
-*.pyi
+copra_stubs.pyi
 
 *.dutdoc.md
 

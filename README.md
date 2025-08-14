@@ -9,7 +9,7 @@ Generates type stubs for HDL designs to enable IDE autocomplete in cocotb testbe
    ```makefile
    COCOTB_TEST_MODULES = copra.integration.autostub,your_test_module
    ```
-3. Run your cocotb tests - stubs generated in `copra_stubs/dut.pyi`
+3. Run your cocotb tests - stubs generated in `copra_stubs.pyi`
 
 ## How it Works
 

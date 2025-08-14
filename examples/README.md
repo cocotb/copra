@@ -7,7 +7,9 @@ Examples demonstrating type stub generation for HDL designs.
 ```bash
 SIM=verilator uv run make
 
-cd simple_dff && make
+cd simple_dff && make # for a usual flow
+# or
+cd simple_dff && make gen_stubs # for a standalone flow (only stubs)
 ```
 
 ## Examples
@@ -26,5 +28,5 @@ cd simple_dff && make
 2. Run cocotb tests - stubs generated automatically
 3. Configure IDE to use generated stubs
 
-Check generated `dut.pyi` files to see signal mappings.
+Check generated `copra_stubs.pyi` files to see signal mappings.
 

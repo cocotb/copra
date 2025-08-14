@@ -73,8 +73,8 @@ class DiscoveryConfig:
 @dataclass
 class OutputConfig:
     """Configuration for stub file output."""
-    default_stub_dir: str = 'copra_stubs'
-    stub_filename: str = 'dut.pyi'
+    default_stub_dir: str = '.'
+    stub_filename: str = 'copra_stubs.pyi'
     root_class_name: str = 'DUT'
     env_var_stub_dir: str = 'COPRA_STUB_DIR'
     header_lines: List[str] = field(default_factory=lambda: [
