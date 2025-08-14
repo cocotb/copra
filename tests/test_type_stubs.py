@@ -10,14 +10,14 @@ def test_stubs_typecheck() -> None:
         f"Errors in {d.name}:\n{subprocess.run([
             sys.executable, '-m', 'mypy',
             '--config-file', str(ROOT / 'pyproject.toml'),
-            str(d / 'copra_stubs')
+            str(d / 'copra_stubs.pyi')
         ], capture_output=True, text=True).stdout}"
         for d in examples_dir.iterdir()
-        if d.is_dir() and (d / "copra_stubs").exists() 
+        if d.is_dir() and (d / "copra_stubs.pyi").exists() 
         and subprocess.run([
             sys.executable, '-m', 'mypy',
             '--config-file', str(ROOT / 'pyproject.toml'), 
-            str(d / 'copra_stubs')
+            str(d / 'copra_stubs.pyi')
         ], capture_output=True, text=True).returncode
     ]
 

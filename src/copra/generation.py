@@ -38,12 +38,14 @@ class StubGenerator:
             top_tree = tree[top_key]
             top_node = top_tree.get("_node")
             
+            top_class_name = sanitize_name(top_key)
+            
             base_class_key = 'hierarchy'
             if top_node and self.config.types.base_classes['hierarchy_array'].split('.')[-1] in top_node.py_type:
                 base_class_key = 'hierarchy_array'
             
             base_class = self.config.types.base_classes[base_class_key]
-            lines.append(f"class {self.config.output.root_class_name}({base_class}):")
+            lines.append(f"class {top_class_name}({base_class}):")
             
             children = top_tree.get("_children", {})
             if not children:
@@ -53,7 +55,7 @@ class StubGenerator:
             lines.append("")
             
             generated_classes: Set[str] = set()
-            self._generate_meaningful_classes(tree, lines, generated_classes)
+            self._generate_meaningful_classes(tree, lines, generated_classes, top_class_name)
         
         out_dir.mkdir(parents=True, exist_ok=True)
         text = "\n".join(lines)
@@ -118,7 +120,7 @@ class StubGenerator:
         
         return "Any"
 
-    def _generate_meaningful_classes(self, tree: Dict[str, Any], lines: List[str], generated_classes: Set[str]) -> None:
+    def _generate_meaningful_classes(self, tree: Dict[str, Any], lines: List[str], generated_classes: Set[str], top_class_name: str) -> None:
         """Generate class definitions only for nodes that represent meaningful nested modules."""
         for name, subtree in tree.items():
             node = subtree.get("_node")
@@ -126,7 +128,7 @@ class StubGenerator:
             
             if node and node.is_scope and children and name != list(tree.keys())[0]:
                 class_name = sanitize_name(name)
-                if class_name not in generated_classes and class_name != self.config.output.root_class_name:
+                if class_name not in generated_classes and class_name != top_class_name:
                     generated_classes.add(class_name)
                     
                     base_class_key = 'hierarchy'
@@ -173,7 +175,7 @@ class StubGenerator:
                         
                     lines.append("")
             
-            self._generate_meaningful_classes(children, lines, generated_classes)
+            self._generate_meaningful_classes(children, lines, generated_classes, top_class_name)
 
 def generate_stub(hierarchy: HierarchyDict, out_dir: Path) -> Path:
     """Generate comprehensive stub file from HierarchyDict with proper cocotb types."""
