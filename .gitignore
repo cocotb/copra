@@ -39,7 +39,7 @@ Thumbs.db
 
 
 # generated stubs
-*.pyi
+dut.pyi
 
 *.dutdoc.md
 

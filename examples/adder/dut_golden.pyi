@@ -8,11 +8,12 @@ import cocotb.types
 class DUT(cocotb.handle.HierarchyObject):
     A: cocotb.handle.LogicArrayObject
     B: cocotb.handle.LogicArrayObject
-    DATA_WIDTH: cocotb.handle.LogicArrayObject
     X: cocotb.handle.LogicArrayObject
+    DATA_WIDTH: cocotb.handle.LogicArrayObject
     gen_debug_regs: cocotb.handle.HierarchyArrayObject[GenDebugRegs]
 
 class GenDebugRegs(cocotb.handle.HierarchyObject):
     debug_a_local: cocotb.handle.LogicArrayObject
     debug_b_local: cocotb.handle.LogicArrayObject
     debug_valid: cocotb.handle.LogicObject
+    i: cocotb.handle.LogicArrayObject

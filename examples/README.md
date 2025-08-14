@@ -7,7 +7,9 @@ Examples demonstrating type stub generation for HDL designs.
 ```bash
 SIM=verilator uv run make
 
-cd simple_dff && make
+cd simple_dff && make # for a usual flow
+# or
+cd simple_dff && make gen_stubs # for a standalone flow (only stubs)
 ```
 
 ## Examples

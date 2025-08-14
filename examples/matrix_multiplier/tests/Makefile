@@ -73,6 +73,14 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 
 endif
 
+gen_stubs:
+	COCOTB_TOPLEVEL=$(COCOTB_TOPLEVEL) \
+	TOPLEVEL_LANG=$(TOPLEVEL_LANG) \
+	VERILOG_SOURCES="$(VERILOG_SOURCES)" \
+	VHDL_SOURCES="$(VHDL_SOURCES)" \
+	COMPILE_ARGS="$(COMPILE_ARGS)" \
+	$(shell cocotb-config --python-bin) $(shell pwd)/../../../src/copra/integration/standalone_stubgen.py
+
 # Profiling
 
 DOT_BINARY ?= dot
