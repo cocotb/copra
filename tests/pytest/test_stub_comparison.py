@@ -47,11 +47,11 @@ def parse_pyi_file(file_path: pathlib.Path) -> Dict[str, Dict[str, str]]:
 
 
 def find_generated_stub(example_dir: pathlib.Path) -> pathlib.Path | None:
-    stub_path = example_dir / "tests" / "copra_stubs" / "dut.pyi"
+    stub_path = example_dir / "tests" / "copra_stubs.pyi"
     if stub_path.exists():
         return stub_path
     
-    stub_path = example_dir / "copra_stubs" / "dut.pyi"
+    stub_path = example_dir / "copra_stubs.pyi"
     if stub_path.exists():
         return stub_path
     

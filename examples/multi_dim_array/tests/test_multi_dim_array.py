@@ -18,7 +18,7 @@ from cocotb.triggers import Timer
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from copra_stubs.dut import DUT
+    from copra_stubs import DUT
 else:
     DUT = Any
 

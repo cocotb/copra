@@ -82,10 +82,7 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict = true
-mypy_path = [
-  "examples/cpu/copra_stubs",
-  "examples/dff/copra_stubs",
-]
+mypy_path = []
 plugins = []
 show_error_codes = true
 
