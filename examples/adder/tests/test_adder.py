@@ -14,7 +14,7 @@ if cocotb.simulator.is_running():
     from adder_model import adder_model
 
 if TYPE_CHECKING:
-    from copra_stubs import DUT
+    from copra_stubs import Adder as DUT
 else:
     DUT = Any
 

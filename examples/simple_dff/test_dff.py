@@ -13,7 +13,7 @@ from cocotb_tools.runner import get_runner
 LANGUAGE = os.getenv("HDL_TOPLEVEL_LANG", "verilog").lower().strip()
 
 if TYPE_CHECKING:
-    from copra_stubs import DUT
+    from copra_stubs import Dff as DUT
 else:
     DUT = Any
 

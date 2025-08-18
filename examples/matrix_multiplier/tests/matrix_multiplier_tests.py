@@ -31,7 +31,7 @@ from cocotb.types import Array, LogicArray, Range
 T = TypeVar("T")
 
 if TYPE_CHECKING:
-    from copra_stubs import DUT
+    from copra_stubs import MatrixMultiplier as DUT
 else:
     DUT = Any
 

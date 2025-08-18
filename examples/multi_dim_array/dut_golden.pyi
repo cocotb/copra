@@ -6,7 +6,7 @@ import cocotb.types
 # It provides type stubs for your HDL design for use with cocotb
 # SIM=icarus
 
-class DUT(cocotb.handle.HierarchyObject):
+class MultiDimArray(cocotb.handle.HierarchyObject):
     in_2d_arr: cocotb.handle.LogicArrayObject
     in_2d_arr_packed: cocotb.handle.LogicArrayObject
     in_2d_vect_packed_packed: cocotb.handle.LogicArrayObject
