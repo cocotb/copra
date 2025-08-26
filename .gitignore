@@ -63,6 +63,5 @@ examples/**/*_interface.md
 examples/**/*_interface.rst
 examples/**/*_types.py
 .cursor/rules/use-q-when-exiting-from-shell-back-to-chat.mdc
-noxfile.py
 uv.lock
 .gitignore
