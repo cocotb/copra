@@ -12,7 +12,7 @@ from cocotb import simulator
 from .introspection import extract_full_type_info
 from .config import get_config
 
-@dataclass(slots=True)
+@dataclass
 class HDLNode:
     path: str
     py_type: str
