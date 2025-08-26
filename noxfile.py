@@ -20,7 +20,7 @@ def lint(session):
     """Run the linter."""
     args = session.posargs or ["check", "src", "tests", "examples"]
     
-    session.run("uv", "pip", "install", "--system", "ruff", "mypy")
+    session.run("uv", "pip", "install", "ruff", "mypy")
     session.run("ruff", *args)
     session.run("mypy", "--disable-error-code=unused-ignore",
                 "--disable-error-code=import-not-found", "src")
@@ -29,15 +29,15 @@ def lint(session):
 @nox.session(python=PYTHON_VERSIONS)
 def test(session):
     """Run the test suite."""
-    session.run("uv", "pip", "install", "--system", "pytest", "pytest-cov")
-    session.run("uv", "pip", "install", "--system", "-e", ".")
+    session.run("uv", "pip", "install", "pytest", "pytest-cov")
+    session.run("uv", "pip", "install", "-e", ".")
     session.run("pytest", "tests/", "-v", "--cov=copra", "--cov-report=term-missing")
 
 
 @nox.session(python=PYTHON_VERSIONS[-1])
 def examples(session):
     """Run the examples."""
-    session.run("uv", "pip", "install", "--system", "-e", ".")
+    session.run("uv", "pip", "install", "-e", ".")
     
     # Run examples that have test files
     examples_with_tests = [

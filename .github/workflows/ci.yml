@@ -38,7 +38,7 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@v3
     - name: Install dependencies
-      run: uv pip install --system nox
+      run: uv pip install nox
     - name: Run linting
       run: nox -s lint
 
@@ -68,7 +68,7 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@v3
     - name: Install dependencies
-      run: uv pip install --system nox
+      run: uv pip install nox
 
     - name: Run tests
       run: nox -s test-${{ matrix.python-version }}
@@ -94,7 +94,7 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@v3
     - name: Install dependencies
-      run: uv pip install --system nox
+      run: uv pip install nox
 
     - name: Run examples
       run: nox -s examples
