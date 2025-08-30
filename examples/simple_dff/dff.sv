@@ -5,11 +5,19 @@
 
 module dff (
   input logic clk, d,
-  output logic q
+  input logic _reset_n,  // starts with underscore hence needs __getitem__ access
+  output logic q,
+  output logic \!special!\  // escaped identifier hence needs __getitem__ access
 );
 
 always @(posedge clk) begin
-  q <= d;
+  if (!_reset_n) begin
+    q <= 1'b0;
+    \!special!\ <= 1'b0;
+  end else begin
+    q <= d;
+    \!special!\ <= ~d;  // invert d for the special signal
+  end
 end
 
 endmodule
