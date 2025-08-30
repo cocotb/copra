@@ -65,7 +65,7 @@ class StubGenerator:
 
     def _generate_class_attributes(self, lines: List[str], children: Dict[str, Any], indent_str: str, filter_deep_signals: bool = False) -> None:
         """Generate class attributes with proper type annotations."""
-        for child_name, child_tree in children.items():
+        for child_name, child_tree in sorted(children.items()):
             if '[' in child_name and child_name.endswith(']'):
                 continue
                 
@@ -122,7 +122,7 @@ class StubGenerator:
 
     def _generate_meaningful_classes(self, tree: Dict[str, Any], lines: List[str], generated_classes: Set[str], top_class_name: str) -> None:
         """Generate class definitions only for nodes that represent meaningful nested modules."""
-        for name, subtree in tree.items():
+        for name, subtree in sorted(tree.items()):
             node = subtree.get("_node")
             children = subtree.get("_children", {})
             
@@ -142,7 +142,7 @@ class StubGenerator:
                     is_array_object = hierarchy_array_class in node.py_type
                     has_non_index_children = False
                     
-                    for child_name, child_tree in children.items():
+                    for child_name, child_tree in sorted(children.items()):
                         child_node = child_tree.get("_node")
                         if child_node:
                             if is_array_object:
