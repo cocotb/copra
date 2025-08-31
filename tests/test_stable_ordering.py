@@ -1,3 +1,7 @@
+# Copyright cocotb contributors
+# Licensed under the Revised BSD License, see LICENSE for details.
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Test stable ordering in generated stubs."""
 
 import tempfile
