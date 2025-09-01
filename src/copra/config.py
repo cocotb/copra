@@ -19,7 +19,7 @@ class TypeConfig:
         'from __future__ import annotations',
         'import cocotb.handle',
         'import cocotb.types',
-        'from typing_extensions import overload, Literal'
+        'from typing import overload, Literal'
     ])
     
     base_classes: Dict[str, str] = field(default_factory=lambda: {

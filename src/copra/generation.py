@@ -51,8 +51,8 @@ class StubGenerator:
             if not children:
                 lines.append("    pass")
             else:
-                self._generate_class_attributes(lines, children, "    ", filter_deep_signals=True)
-                self._generate_getitem_overloads(lines, children, "    ", filter_deep_signals=True)
+                self._generate_class_attributes(lines, children, "    ", filter_deep_signals=False)
+                self._generate_getitem_overloads(lines, children, "    ", filter_deep_signals=False)
             lines.append("")
             
             generated_classes: Set[str] = set()
@@ -76,12 +76,16 @@ class StubGenerator:
                     if not child_node.is_scope and '.' in child_node.path and child_node.path.count('.') > 1:
                         continue
                 
-                # only generate class attributes for signals that can be valid Python identifiers
-                # signals that need __getitem__ access should not be class attributes
-                can_be_attribute = (
-                    child_name.isidentifier() and 
-                    not child_name.startswith('_')
-                )
+                # Generate class attributes based on type:
+                # - Scope objects (hierarchical modules): always generate as attributes if valid identifier
+                # - Signal objects: only generate as attributes if valid identifier and doesn't start with underscore
+                if child_node.is_scope:
+                    can_be_attribute = child_name.isidentifier()
+                else:
+                    can_be_attribute = (
+                        child_name.isidentifier() and 
+                        not child_name.startswith('_')
+                    )
                 
                 if can_be_attribute:
                     if child_node.is_scope:
@@ -101,7 +105,7 @@ class StubGenerator:
                     lines.append(f"{indent_str}{child_name}: {type_annotation}")
                 
     def _generate_getitem_overloads(self, lines: List[str], children: Dict[str, Any], indent_str: str, filter_deep_signals: bool = False) -> None:
-        """Generate __getitem__ overloads for signals that need dict-style access."""
+        """Generate __getitem__ overloads for all signals to provide dict-style access."""
         overloads_needed: List[Tuple[str, str]] = []
         
         for child_name, child_tree in children.items():
@@ -114,31 +118,23 @@ class StubGenerator:
                     if not child_node.is_scope and '.' in child_node.path and child_node.path.count('.') > 1:
                         continue
                 
-                # (dict-style access: starts with underscore, contains special chars, or is not a valid Python identifier)
-                needs_getitem = (
-                    child_name.startswith('_') or 
-                    not child_name.isidentifier()
-                )
-                
-                if needs_getitem:
-                    # find out type annotation for the __getitem__ overload
-                    if child_node.is_scope:
-                        class_name = sanitize_name(child_name)
-                        base = self.config.types.base_classes['hierarchy_array']
-                        # if its already parameterized no need to add the class name
-                        if base.split('.')[-1] in child_node.py_type:
-                            type_annotation = (
-                                child_node.py_type if 
-                                "[" in child_node.py_type and 
-                                "]" in child_node.py_type else 
-                                f"{base}[{class_name}]"
-                            )
-                        else:
-                            type_annotation = class_name
+                if child_node.is_scope:
+                    class_name = sanitize_name(child_name)
+                    base = self.config.types.base_classes['hierarchy_array']
+                    # if its already parameterized no need to add the class name
+                    if base.split('.')[-1] in child_node.py_type:
+                        type_annotation = (
+                            child_node.py_type if 
+                            "[" in child_node.py_type and 
+                            "]" in child_node.py_type else 
+                            f"{base}[{class_name}]"
+                        )
                     else:
-                        type_annotation = child_node.py_type # non scoped children can have node's type
-                    
-                    overloads_needed.append((child_name, type_annotation))
+                        type_annotation = class_name
+                else:
+                    type_annotation = child_node.py_type # non scoped children can have node's type
+                
+                overloads_needed.append((child_name, type_annotation))
         
         # overload methods:
         if overloads_needed:
