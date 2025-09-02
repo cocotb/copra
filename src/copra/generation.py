@@ -135,17 +135,12 @@ class StubGenerator:
                     type_annotation = child_node.py_type # non scoped children can have node's type
                 
                 overloads_needed.append((child_name, type_annotation))
-        format_string_literal: Callable[[str], str] = lambda s: (
-            repr(s[:-2] + "\\") 
-            if s.endswith("\\\\") and len(s) >= 3 and s[:-2] and not s[:-2].endswith("\\") 
-            else repr(s)
-        )
         # overload methods:
         if overloads_needed:
             lines.append("")
             for signal_name, signal_type in overloads_needed:
                 lines.append(f"{indent_str}@overload")
-                lines.append(f"{indent_str}def __getitem__(self, name: Literal[{format_string_literal(signal_name)}]) -> {signal_type}: ...")
+                lines.append(f"{indent_str}def __getitem__(self, name: Literal[{repr(signal_name)}]) -> {signal_type}: ...")
                 lines.append("")
             
             # fallback overload
