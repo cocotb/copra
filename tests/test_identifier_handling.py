@@ -26,7 +26,7 @@ class TestIdentifierHandling:
         ("_reset_n", "Literal['_reset_n']"),
         ("__internal", "Literal['__internal']"),
         
-        ("!special!\\", "Literal['!special!\\\\']"),
+        ("!special!\\\\", "Literal['!special!\\\\']"),
         ("$signal\\", "Literal['$signal\\\\']"),
         ("name with spaces\\", "Literal['name with spaces\\\\']"),
         ("123_numeric_start\\", "Literal['123_numeric_start\\\\']"),
