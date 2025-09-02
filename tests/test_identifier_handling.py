@@ -103,8 +103,3 @@ class MockNode:
         self.py_type = py_type
         self.is_scope = is_scope
         self.width = None
-
-
-if __name__ == "__main__":
-    # Allow running the test directly
-    pytest.main([__file__, "-v"])
