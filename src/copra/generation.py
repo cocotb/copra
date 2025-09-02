@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from textwrap import indent
-from typing import Dict, List, Set, Any
+from typing import Dict, List, Set, Any, Tuple, Callable
 
 from .discovery import HierarchyDict
 from .config import get_config
@@ -51,7 +51,8 @@ class StubGenerator:
             if not children:
                 lines.append("    pass")
             else:
-                self._generate_class_attributes(lines, children, "    ", filter_deep_signals=True)
+                self._generate_class_attributes(lines, children, "    ", filter_deep_signals=False)
+                self._generate_getitem_overloads(lines, children, "    ", filter_deep_signals=False)
             lines.append("")
             
             generated_classes: Set[str] = set()
@@ -75,21 +76,77 @@ class StubGenerator:
                     if not child_node.is_scope and '.' in child_node.path and child_node.path.count('.') > 1:
                         continue
                 
+                # Generate class attributes based on type:
+                # - Scope objects (hierarchical modules): always generate as attributes if valid identifier
+                # - Signal objects: only generate as attributes if valid identifier and doesn't start with underscore
+                if child_node.is_scope:
+                    can_be_attribute = child_name.isidentifier()
+                else:
+                    can_be_attribute = (
+                        child_name.isidentifier() and 
+                        not child_name.startswith('_')
+                    )
+                
+                if can_be_attribute:
+                    if child_node.is_scope:
+                        class_name = sanitize_name(child_name)
+                        hierarchy_array_class = self.config.types.base_classes['hierarchy_array'].split('.')[-1]
+                        
+                        if hierarchy_array_class in child_node.py_type:
+                            if "[" in child_node.py_type and "]" in child_node.py_type:
+                                type_annotation = child_node.py_type
+                            else:
+                                type_annotation = f"{self.config.types.base_classes['hierarchy_array']}[{class_name}]"
+                        else:
+                            type_annotation = class_name
+                    else:
+                        type_annotation = child_node.py_type
+                    
+                    lines.append(f"{indent_str}{child_name}: {type_annotation}")
+                
+    def _generate_getitem_overloads(self, lines: List[str], children: Dict[str, Any], indent_str: str, filter_deep_signals: bool = False) -> None:
+        """Generate __getitem__ overloads for all signals to provide dict-style access."""
+        overloads_needed: List[Tuple[str, str]] = []
+        
+        for child_name, child_tree in children.items():
+            if '[' in child_name and child_name.endswith(']'):
+                continue
+                
+            child_node = child_tree.get("_node")
+            if child_node:
+                if filter_deep_signals:
+                    if not child_node.is_scope and '.' in child_node.path and child_node.path.count('.') > 1:
+                        continue
+                
                 if child_node.is_scope:
                     class_name = sanitize_name(child_name)
-                    hierarchy_array_class = self.config.types.base_classes['hierarchy_array'].split('.')[-1]
-                    
-                    if hierarchy_array_class in child_node.py_type:
-                        if "[" in child_node.py_type and "]" in child_node.py_type:
-                            type_annotation = child_node.py_type
-                        else:
-                            type_annotation = f"{self.config.types.base_classes['hierarchy_array']}[{class_name}]"
+                    base = self.config.types.base_classes['hierarchy_array']
+                    # if its already parameterized no need to add the class name
+                    if base.split('.')[-1] in child_node.py_type:
+                        type_annotation = (
+                            child_node.py_type if 
+                            "[" in child_node.py_type and 
+                            "]" in child_node.py_type else 
+                            f"{base}[{class_name}]"
+                        )
                     else:
                         type_annotation = class_name
                 else:
-                    type_annotation = child_node.py_type
+                    type_annotation = child_node.py_type # non scoped children can have node's type
                 
-                lines.append(f"{indent_str}{child_name}: {type_annotation}")
+                overloads_needed.append((child_name, type_annotation))
+        # overload methods:
+        if overloads_needed:
+            lines.append("")
+            for signal_name, signal_type in overloads_needed:
+                lines.append(f"{indent_str}@overload")
+                lines.append(f"{indent_str}def __getitem__(self, name: Literal[{repr(signal_name)}]) -> {signal_type}: ...")
+                lines.append("")
+            
+            # fallback overload
+            lines.append(f"{indent_str}@overload") 
+            lines.append(f"{indent_str}def __getitem__(self, name: str) -> cocotb.handle.SimHandleBase: ...")
+            lines.append("")
                 
     def _should_add_value_property(self, py_type: str) -> bool:
         """Check if we should add a value type annotation for this handle type."""
@@ -172,6 +229,9 @@ class StubGenerator:
                                 
                     if not has_non_index_children:
                         lines.append("    pass")
+                    else:
+                        self._generate_getitem_overloads(lines, children, "    ")
+
                         
                     lines.append("")
             

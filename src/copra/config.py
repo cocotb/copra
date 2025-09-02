@@ -18,7 +18,8 @@ class TypeConfig:
     import_statements: List[str] = field(default_factory=lambda: [
         'from __future__ import annotations',
         'import cocotb.handle',
-        'import cocotb.types'
+        'import cocotb.types',
+        'from typing import overload, Literal'
     ])
     
     base_classes: Dict[str, str] = field(default_factory=lambda: {
