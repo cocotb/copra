@@ -27,9 +27,9 @@ class TestIdentifierHandling:
         ("__internal", "Literal['__internal']"),
         
         ("!special!\\\\", "Literal['!special!\\\\']"),
-        ("$signal\\", "Literal['$signal\\\\']"),
-        ("name with spaces\\", "Literal['name with spaces\\\\']"),
-        ("123_numeric_start\\", "Literal['123_numeric_start\\\\']"),
+        ("$signal\\\\", "Literal['$signal\\\\']"),
+        ("name with spaces\\\\", "Literal['name with spaces\\\\']"),
+        ("123_numeric_start\\\\", "Literal['123_numeric_start\\\\']"),
         
         ("", "Literal['']"),
         ("a", "Literal['a']"),
