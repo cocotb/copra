@@ -11,6 +11,17 @@ Generates type stubs for HDL designs to enable IDE autocomplete in cocotb testbe
    ```
 3. Run your cocotb tests - stubs generated in `copra_stubs.pyi`
 
+## Configuration
+
+You can configure how copra works by setting environment variables:
+
+| Variable name          | Description                                                         | Default           |
+|------------------------|---------------------------------------------------------------------|-------------------|
+| `COPRA_STUB_DIRECTORY` | Directory to save stub file to                                      | `.`               |
+| `COPRA_STUB_FILENAME`  | Filename of file to store stubs in. Stub files should end in `.pyi` | `copra_stubs.pyi` |
+| `COPRA_MAX_DEPTH`      | Maximum recursion depth of type discovery.                          | `100`             |
+
+
 ## How it Works
 
 Copra introspects the live cocotb hierarchy and maps HDL signals to cocotb handle types:
