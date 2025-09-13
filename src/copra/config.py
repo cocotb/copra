@@ -98,6 +98,9 @@ class CopraConfig:
         if stub_dir := os.getenv('COPRA_STUB_DIR'):
             config.output.default_stub_dir = stub_dir
         
+        if stub_filename := os.getenv('COPRA_STUB_FILENAME'):
+            config.output.stub_filename = stub_filename
+        
         if max_depth := os.getenv('COPRA_MAX_DEPTH'):
             try:
                 config.discovery.max_depth = int(max_depth)
